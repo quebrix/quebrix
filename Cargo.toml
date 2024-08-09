@@ -10,3 +10,28 @@ actix-files = "0.6"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = "1.38.0"
+
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+
+# Inherit from release, because we are not rebuilding often,
+# and we don't want the huge binary sizes from debug builds.
+[profile.ci]
+inherits = "release"
+lto = false
+opt-level = 0
+
+# Inherits by default from release
+[profile.bench]
+lto = false
+debug = true
+codegen-units = 256 # restore default value for faster compilation
+
+# Profile for performance testing, which is faster to build than release.
+[profile.perf]
+inherits = "release"
+lto = false
+opt-level = 3
+codegen-units = 256 # restore default value for faster compilation
