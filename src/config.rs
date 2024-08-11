@@ -7,6 +7,7 @@ use std::io::BufReader;
 pub struct Settings {
     pub port: u16,
     pub memory_size_limit: usize,
+    pub eviction_strategy:i32
 }
 
 impl Settings {

@@ -29,17 +29,22 @@ fn main() {
 
     // Reading configurations from config.json
     let settings: Settings = Settings::new();
-    let memory_handler = Arc::new(Mutex::new(MemoryHandler::new()));
-    let cache = Arc::new(Mutex::new(Cache::new(settings.port, memory_handler.clone())));
-    let cache_clone = Arc::clone(&cache);
-    
-    std::thread::spawn(move || {
-        actix_web::rt::System::new().block_on(async move {
-            let settings: Settings = Settings::new();
-            server::run_server(cache_clone, settings.port.to_string(), "0.0.0.0".to_string()).await.unwrap();
+    if settings.eviction_strategy > 3 {
+        println!("invalid EvictionStrategy passing in config.json change it in to => 0:VolatileLru 1:VolatileTtl 2:AllKeysLru 3:AllKeysRandom");
+    }
+    else {
+        let memory_handler = Arc::new(Mutex::new(MemoryHandler::new()));
+        let cache = Arc::new(Mutex::new(Cache::new(settings.port, memory_handler.clone(),settings.eviction_strategy)));
+        let cache_clone = Arc::clone(&cache);
+        
+        std::thread::spawn(move || {
+            actix_web::rt::System::new().block_on(async move {
+                let settings: Settings = Settings::new();
+                server::run_server(cache_clone, settings.port.to_string(), "0.0.0.0".to_string()).await.unwrap();
+            });
         });
-    });
-
-    std::thread::park();
-
+    
+        std::thread::park();
+       
+    }
 }
