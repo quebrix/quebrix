@@ -1,4 +1,5 @@
 {
-    "port":6006,
-    "memory_size_limit":10
+    "port":6022,
+    "memory_size_limit":10,
+    "eviction_strategy":1
 }
