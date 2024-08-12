@@ -225,7 +225,7 @@ pub async fn get_all_clusters(
 }
 
 pub async fn check_connection() -> HttpResponse {
-    HttpResponse::Ok().json(ApiResponse::ok("Tock"))
+    HttpResponse::Ok().json(ApiResponse::ok("Pong"))
 }
 
 pub async fn set_cluster(
@@ -248,7 +248,7 @@ pub async fn run_server(
             .app_data(web::Data::new(cache.clone()))
             .route("/api/set", web::post().to(set))
             .route("/api/get/{cluster}/{key}", web::get().to(get))
-            .route("/api/get/check", web::get().to(check_connection))
+            .route("/api/ping", web::get().to(check_connection))          
             .route("/api/delete/{cluster}/{key}", web::delete().to(delete))
             .route("/api/get_keys/{cluster}", web::get().to(get_keys_of_cluster))
             .route("/api/clear_cluster/{cluster}", web::delete().to(clear_cluster))
