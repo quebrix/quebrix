@@ -205,31 +205,6 @@ impl Cache {
         }
     }
 
-    // fn evict_volatile_random(&self, store: &mut HashMap<String, HashMap<String, (Vec<u8>, Option<Instant>, Option<Duration>)>>, memory_handler: &mut memory_handling::memory_handling::MemoryHandler) {
-    //     let keys: Vec<(String, String)> = store.iter()
-    //         .filter_map(|(cluster_key, cluster_store)| {
-    //             cluster_store.iter()
-    //                 .filter_map(|(key, (_, expiration_time, _))| {
-    //                     if expiration_time.is_some() {
-    //                         Some((cluster_key.clone(), key.clone()))
-    //                     } else {
-    //                         None
-    //                     }
-    //                 })
-    //                 .collect::<Vec<_>>()
-    //         })
-    //         .collect();
-
-    //     if let Some((cluster_key, key_to_evict)) = keys.choose(&mut rand::thread_rng()) {
-    //         if let Some(cluster_store) = store.get_mut(cluster_key) {
-    //             if let Some((value, _, _)) = cluster_store.remove(key_to_evict) {
-    //                 let memory_usage = std::mem::size_of_val(&value);
-    //                 memory_handler.delete_memory(memory_usage);
-    //                 println!("Evicted [{}] from cluster [{}] using volatile random strategy", key_to_evict, cluster_key);
-    //             }
-    //         }
-    //     }
-    // }
 
     fn evict_allkeys_lru(&self, store: &mut HashMap<String, HashMap<String, (Vec<u8>, Option<Instant>, Option<Duration>)>>, memory_handler: &mut memory_handling::memory_handling::MemoryHandler) {
         let mut lru_key: Option<(String, String)> = None;
@@ -281,7 +256,6 @@ impl Cache {
 enum EvictionStrategy {
     VolatileLru,
     VolatileTtl,
-    //VolatileRandom,
     AllKeysLru,
     AllKeysRandom,
 }
@@ -290,7 +264,6 @@ impl EvictionStrategy {
         match value {
             0 => Some(EvictionStrategy::VolatileLru),
             1 => Some(EvictionStrategy::VolatileTtl),
-            //2 => Some(EvictionStrategy::VolatileRandom),
             2 => Some(EvictionStrategy::AllKeysLru),
             3 => Some(EvictionStrategy::AllKeysRandom),
             _ => {
