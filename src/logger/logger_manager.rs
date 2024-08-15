@@ -39,14 +39,14 @@ impl<'a> Logger<'a> {
         file_dir_path.push("Logs");
         let now: DateTime<Local> = Local::now();
         let formatted_date = now.format("%d-%m-%Y %H:%M:%S %A").to_string();
+        let log_file_name = format!("logger_{}",now.format("%d-%m-%Y"));
         if !file_dir_path.exists() {
             std::fs::create_dir_all(file_dir_path.clone());
-            file_dir_path.push("logger.txt");
-            if !file_dir_path.exists(){
-                File::create(file_dir_path.clone()).expect("Failed to create logger file");
-            }
         }
-        file_dir_path.push("logger.txt");
+        file_dir_path.push(log_file_name.clone());
+        if !file_dir_path.exists(){
+            File::create(file_dir_path.clone()).expect("Failed to create logger file");
+        }
         let mut file = OpenOptions::new()
             .append(true)
             .open(file_dir_path.clone())
