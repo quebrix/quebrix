@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex};
 use crate::public_api::server;
 use memory_handling::memory_handling::MemoryHandler;
 mod cache;
+mod crypto;
 use crate::logger::logger_manager::Logger;
 mod public_api;
 mod config;

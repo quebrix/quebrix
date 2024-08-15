@@ -5,6 +5,10 @@ edition = "2021"
 build = "build.rs"
 
 [dependencies]
+aes = "0.7"
+block-modes = "0.8"
+block-padding = "0.2"
+hex = "0.4"
 chrono = "0.4"
 rand="0.8.5"
 actix-web = "4.0"
