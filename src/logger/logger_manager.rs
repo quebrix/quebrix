@@ -39,7 +39,7 @@ impl<'a> Logger<'a> {
         file_dir_path.push("Logs");
         let now: DateTime<Local> = Local::now();
         let formatted_date = now.format("%d-%m-%Y %H:%M:%S %A").to_string();
-        let log_file_name = format!("logger_{}",now.format("%d-%m-%Y"));
+        let log_file_name = format!("logger_{}.txt",now.format("%d-%m-%Y"));
         if !file_dir_path.exists() {
             std::fs::create_dir_all(file_dir_path.clone());
         }
