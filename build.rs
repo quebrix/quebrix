@@ -6,6 +6,7 @@ fn main() {
     let src = "./config/config.json"; 
     let bat = "src/installer/russel_install.bat";
     let nssm="src/nssm/nssm.exe";
+    let logger="src/Log/logger.txt";
 
     let out_dir = env::var("OUT_DIR").unwrap();
 
@@ -25,21 +26,32 @@ fn main() {
     nssm_dest.push(".."); 
     nssm_dest.push(".."); 
     nssm_dest.push("nssm");
+
+    let mut logger_dest = PathBuf::from(out_dir.clone());
+    logger_dest.push(".."); 
+    logger_dest.push(".."); 
+    logger_dest.push(".."); 
+    logger_dest.push("Logs");
     
     
     fs::create_dir_all(&config_dest).unwrap();
     fs::create_dir_all(&nssm_dest).unwrap();
+    fs::create_dir_all(&logger_dest).unwrap();
     
     config_dest.push("config.json"); 
     bat_dest.push("russel_install.bat"); 
     nssm_dest.push("nssm.exe");
+    logger_dest.push("logger.txt");
 
     fs::copy(src, &config_dest).unwrap();
     fs::copy(bat, &bat_dest).unwrap();
     fs::copy(nssm, &nssm_dest).unwrap();
+    //fs::copy(logger, &logger_dest).unwrap();
+    std::fs::File::create(logger_dest).unwrap();
 
     println!("cargo:rerun-if-changed={}", src);
     println!("cargo:rerun-if-changed={}", bat);
     println!("cargo:rerun-if-changed={}", nssm);
+    println!("cargo:rerun-if-changed={}", logger);
 }
 

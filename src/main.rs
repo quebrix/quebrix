@@ -2,9 +2,11 @@ use std::sync::{Arc, Mutex};
 use crate::public_api::server;
 use memory_handling::memory_handling::MemoryHandler;
 mod cache;
+use crate::logger::logger_manager::Logger;
 mod public_api;
 mod config;
 mod memory_handling;
+mod logger;
 use std::env;
 use crate::config::Settings;
 use cache::Cache;
@@ -24,15 +26,15 @@ fn main() {
     println!("
     ");
     
-    // let args: Vec<String> = env::args().collect();
-    // let main_args = args.last().unwrap();
-
+    
     // Reading configurations from config.json
     let settings: Settings = Settings::new();
     if settings.eviction_strategy > 3 {
         println!("invalid EvictionStrategy passing in config.json change it in to => 0:VolatileLru 1:VolatileTtl 2:AllKeysLru 3:AllKeysRandom");
     }
     else {
+        let mut log = Logger::log_info("application starting...");
+        log.write_log_to_file();
         let memory_handler = Arc::new(Mutex::new(MemoryHandler::new()));
         let cache = Arc::new(Mutex::new(Cache::new(settings.port, memory_handler.clone(),settings.eviction_strategy)));
         let cache_clone = Arc::clone(&cache);
