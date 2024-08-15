@@ -46,7 +46,7 @@ fn main() {
     fs::copy(src, &config_dest).unwrap();
     fs::copy(bat, &bat_dest).unwrap();
     fs::copy(nssm, &nssm_dest).unwrap();
-    //fs::copy(logger, &logger_dest).unwrap();
+    //create logger
     std::fs::File::create(logger_dest).unwrap();
 
     println!("cargo:rerun-if-changed={}", src);
