@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
 // use actix_web::{web, App, HttpServer, HttpResponse, middleware::Logger};
 // use serde::{Deserialize, Serialize};
@@ -129,6 +130,8 @@
 //     .await
 // }
 
+=======
+>>>>>>> main
 use actix_web::{web, App, HttpServer, HttpResponse, middleware::Logger};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};

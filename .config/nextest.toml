@@ -8,4 +8,7 @@ fail-fast = false
 failure-output = "immediate-final"
 [profile.ci.junit]
 path = "junit.xml"
+<<<<<<< HEAD
 # save junit report
+=======
+>>>>>>> main
