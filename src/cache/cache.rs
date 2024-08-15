@@ -3,6 +3,7 @@ use std::ptr::null;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use rand::seq::SliceRandom;
+use crate::logger::logger_manager::Logger;
 
 use crate::memory_handling;
 
@@ -12,15 +13,17 @@ pub struct Cache {
     store: Arc<Mutex<HashMap<String, HashMap<String, (Vec<u8>, Option<Instant>, Option<Duration>)>>>>,
     port: u16,
     memory_handler: Arc<Mutex<memory_handling::memory_handling::MemoryHandler>>,
+    enable_log:bool
 }
 
 impl Cache {
-    pub fn new(port_number: u16, memory_handler: Arc<Mutex<memory_handling::memory_handling::MemoryHandler>>,evict_type:i32) -> Self {
+    pub fn new(port_number: u16, memory_handler: Arc<Mutex<memory_handling::memory_handling::MemoryHandler>>,evict_type:i32,enable_logs:bool) -> Self {
         Cache {
             store: Arc::new(Mutex::new(HashMap::new())),
             port: port_number,
             memory_handler,
-            evict_type:evict_type
+            evict_type:evict_type,
+            enable_log:enable_logs
         }
     }
 
@@ -33,6 +36,10 @@ impl Cache {
             if memory_handler.is_memory_limit_finished() {
                 println!("Memory limit exceeded. Evicting entries...");
                 self.evict_entries();
+                if self.enable_log == true {
+                    let  memory_handler_log = Logger::log_info("Memory limit exceeded. Evicting entries");
+                    memory_handler_log.write_log_to_file();
+                }
             }
         }
 
@@ -45,14 +52,26 @@ impl Cache {
             memory_handler.add_memory(memory_usage);
 
             println!("Set value in cluster [{}]", &cluster);
+            if self.enable_log == true {
+                let  set_log = Logger::log_info("Set value in cluster");
+                set_log.write_log_to_file();
+            }
         } else {
             println!("Failed to set value: Memory usage has exceeded the configured limit. Update your configuration JSON file.");
+            if self.enable_log == true {
+                let  error_set_log = Logger::log_info("Failed to set value: Memory usage has exceeded the configured limit. Update your configuration JSON file.");
+                error_set_log.write_log_to_file();
+            }
         }
     }
 
     pub fn set_cluster(&self, cluster: String) {
         let mut store = self.store.lock().unwrap();
         store.entry(cluster).or_insert_with(HashMap::new);
+        if self.enable_log == true {
+            let  set_cluster_log = Logger::log_info("cluster set ");
+            set_cluster_log.write_log_to_file();
+        }
     }
 
     pub fn get(&self, cluster: &str, key: &str) -> Option<Vec<u8>> {
@@ -68,7 +87,12 @@ impl Cache {
                     }
                 });
             }
-            store.get(cluster).and_then(|cluster_store| cluster_store.get(key).cloned().map(|(value, _, _)| value))
+            let result = store.get(cluster).and_then(|cluster_store| cluster_store.get(key).cloned().map(|(value, _, _)| value));
+            if self.enable_log == true && result.is_some() {
+                let  get_log = Logger::log_info("value get ");
+                get_log.write_log_to_file();
+            }
+            return result;
     }
 
     pub fn get_keys_of_cluster(&self, cluster: &str) -> Option<Vec<String>> {
@@ -83,6 +107,10 @@ impl Cache {
                 let mut memory_handler = self.memory_handler.lock().unwrap();
                 let memory_usage = std::mem::size_of_val(&value);
                 memory_handler.delete_memory(memory_usage);
+                if self.enable_log == true {
+                    let  delete_log = Logger::log_info("value deleted ");
+                    delete_log.write_log_to_file();
+                }
             }
         }
     }
@@ -93,6 +121,10 @@ impl Cache {
             let mut memory_handler = self.memory_handler.lock().unwrap();
             let total_size: usize = cluster_store.values().map(|(v, _, _)| std::mem::size_of_val(v)).sum();
             memory_handler.delete_memory(total_size);
+            if self.enable_log == true {
+                let  clear_cluster_log = Logger::log_info("cluster cleared ");
+                clear_cluster_log.write_log_to_file();
+            }
         }
     }
 
