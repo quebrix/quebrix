@@ -1,8 +1,15 @@
-use actix_web::{web, App, HttpServer, HttpResponse, middleware::Logger};
+use actix_web::{http::header, middleware::Logger, web, App,HttpRequest, HttpResponse, HttpServer,http::header::HeaderMap};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
-use crate::cache::Cache;
+use crate::{cache::Cache, creds::cred_manager::CredsManager};
 use std::time::Duration;
+
+
+#[derive(Deserialize)]
+struct UserRequest {
+    username: String,
+    password: String,
+}
 
 #[derive(Serialize)]
 struct ApiResponse<T> {
@@ -34,16 +41,54 @@ struct SetRequest {
     ttl: Option<u64>, // Duration in milisecseconds
 }
 
+pub async fn add_user(
+    creds: web::Data<Arc<Mutex<CredsManager>>>,
+    payload: web::Json<UserRequest>,
+) -> HttpResponse {
+    let UserRequest { username, password } = &*payload;
+
+    match creds.lock().unwrap().add_user(username.clone(), password.clone()) {
+        Ok(_) => HttpResponse::Ok().json(ApiResponse::ok("User added successfully")),
+        Err(err) => HttpResponse::InternalServerError().json(ApiResponse::fail(err.to_string())),
+    }
+}
+
+
+pub async fn authenticate_user(
+    creds: web::Data<Arc<Mutex<CredsManager>>>,
+    payload: web::Json<UserRequest>,
+) -> HttpResponse {
+    let UserRequest { username, password } = &*payload;
+
+    if creds.lock().unwrap().authenticate(username, password) {
+        HttpResponse::Ok().json(ApiResponse {
+            is_success: true,
+            data: "Authentication successful".to_string(),
+        })
+    } else {
+        HttpResponse::Unauthorized().json(ApiResponse {
+            is_success: false,
+            data: "Authentication failed".to_string(),
+        })
+    }
+}
+
 pub async fn set(
     cache: web::Data<Arc<Mutex<Cache>>>,
     payload: web::Json<SetRequest>,
+    req: HttpRequest,
 ) -> HttpResponse {
     let SetRequest { cluster, key, value, ttl } = &*payload;
+    let headers: &HeaderMap = req.headers();
+    let username = headers.get("X-Username").and_then(|v| v.to_str().ok()).unwrap_or("");
+    let password = headers.get("X-Password").and_then(|v| v.to_str().ok()).unwrap_or("");
     let set_value = value.as_bytes();
-    
     let ttl_duration = ttl.map(|t| Duration::from_millis(t));
-    cache.lock().unwrap().set(cluster.clone(), key.clone(), Vec::from(set_value), ttl_duration);
-    HttpResponse::Ok().json(ApiResponse::ok("Set operation successful"))     
+    let set_result = cache.lock().unwrap().set(cluster.clone(), key.clone(), Vec::from(set_value), ttl_duration,username,password);
+    if !set_result{
+        return HttpResponse::Ok().json(ApiResponse::fail("access denied login first"));
+    }
+    return HttpResponse::Ok().json(ApiResponse::ok("set successfully"));
 }
 pub async fn get(
     cache: web::Data<Arc<Mutex<Cache>>>,
@@ -108,6 +153,7 @@ pub async fn set_cluster(
 
 pub async fn run_server(
     cache: Arc<Mutex<Cache>>,
+    creds:Arc<Mutex<CredsManager>>,
     port_number: String,
     ip: String,
 ) -> std::io::Result<()> {
@@ -115,6 +161,7 @@ pub async fn run_server(
         App::new()
             .wrap(Logger::default()) // Enable request logging
             .app_data(web::Data::new(cache.clone()))
+            .app_data(web::Data::new(creds.clone()))
             .route("/api/set", web::post().to(set))
             .route("/api/get/{cluster}/{key}", web::get().to(get))
             .route("/api/ping", web::get().to(check_connection))          
@@ -123,6 +170,8 @@ pub async fn run_server(
             .route("/api/clear_cluster/{cluster}", web::delete().to(clear_cluster))
             .route("/api/get_clusters", web::get().to(get_all_clusters))
             .route("/api/set_cluster/{cluster}", web::post().to(set_cluster))
+            .route("/api/add_profile", web::post().to(add_user))  
+            .route("/api/login", web::post().to(authenticate_user))  
     })
     .bind(format!("{}:{}", ip, port_number))? // Bind to the provided IP and port
     .run()

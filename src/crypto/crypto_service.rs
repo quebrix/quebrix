@@ -11,6 +11,7 @@ pub struct Encryptor {
 }
 
 impl Encryptor {
+
     pub fn new(key: &str, iv_pattern: [u8; 16]) -> Self {
         // Pad the key to 32 bytes (AES-256 requires a 256-bit key)
         let key_bytes = key.as_bytes();
@@ -51,5 +52,6 @@ impl Encryptor {
             Err(_) => None,
         }
     }
+
 }
 
