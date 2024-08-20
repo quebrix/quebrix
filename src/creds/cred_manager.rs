@@ -1,7 +1,8 @@
 use std::collections::HashMap;
+use std::env;
 use std::fs::{self, OpenOptions};
 use std::io::{self, BufRead, BufReader, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use actix_web::body::MessageBody;
 
 use crate::crypto::crypto_service::Encryptor;
@@ -35,13 +36,11 @@ impl CredsManager {
         let user = User { username: username.clone(), password: hashed_password };
         self.users.insert(username.clone(), user);
 
-        // Write the user to the file
         self.write_user_to_file(&username)?;
 
         Ok(())
     }
 
-    // Authenticate a user
     pub fn authenticate(&self, username: &str, password: &str) -> bool {
         let encryptor = Encryptor::new(ENCRYPT_KEY,IV_PATTERN);
         if let Some(user) = self.users.get(username) {
@@ -56,7 +55,6 @@ impl CredsManager {
         false
     }
 
-    // Load users from the hidden file
     fn load_users_from_file(&mut self) {
         if let Ok(file) = OpenOptions::new().read(true).open(".creds/users.txt") {
             let reader = BufReader::new(file);
@@ -74,10 +72,23 @@ impl CredsManager {
         }
     }
 
+    
+
     // Write a new user to the file
     fn write_user_to_file(&self, username: &str) -> io::Result<()> {
+        let mut path:PathBuf = env::current_exe().unwrap();
+        path.push("..");
+        path.push("creds");
+        if !path.exists(){
+            std::fs::create_dir_all(path.clone());
+        }
+        path.push("Users.txt");
+
+        if !path.exists(){
+            std::fs::File::create(path.clone());
+        }
         let user = self.users.get(username).unwrap();
-        let mut file = OpenOptions::new().append(true).create(true).open(".creds/users.txt")?;
+        let mut file = OpenOptions::new().append(true).open(path.clone())?;
         writeln!(file, "{}:{:?}", user.username, user.password)?;
         Ok(())
     }
