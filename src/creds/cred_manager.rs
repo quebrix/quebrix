@@ -78,14 +78,34 @@ impl CredsManager {
     fn write_user_to_file(&self, username: &str) -> io::Result<()> {
         let mut path:PathBuf = env::current_exe().unwrap();
         path.push("..");
-        path.push("creds");
-        if !path.exists(){
-            std::fs::create_dir_all(path.clone());
-        }
-        path.push("Users.txt");
 
-        if !path.exists(){
-            std::fs::File::create(path.clone());
+        #[cfg(target_os = "windows")]
+        {
+            path.push("creds"); // Folder name without dot on Windows
+
+            if !path.exists() {
+                fs::create_dir_all(&path)?;
+                // Set the hidden attribute
+                std::process::Command::new("attrib")
+                    .arg("+H")
+                    .arg(&path)
+                    .output()?;
+            }
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            path.push(".creds"); // Hidden folder on Unix-like systems
+
+            if !path.exists() {
+                fs::create_dir_all(&path)?;
+            }
+        }
+        
+        path.push("users.txt");
+
+        // Create the file if it doesn't exist
+        if !path.exists() {
+            fs::File::create(&path)?;
         }
         let user = self.users.get(username).unwrap();
         let mut file = OpenOptions::new().append(true).open(path.clone())?;
