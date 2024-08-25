@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use rand::seq::SliceRandom;
 use crate::logger::logger_manager::Logger;
+use crate::creds::cred_manager::CredsManager;
 
 use crate::memory_handling;
 
@@ -13,54 +14,64 @@ pub struct Cache {
     store: Arc<Mutex<HashMap<String, HashMap<String, (Vec<u8>, Option<Instant>, Option<Duration>)>>>>,
     port: u16,
     memory_handler: Arc<Mutex<memory_handling::memory_handling::MemoryHandler>>,
-    enable_log:bool
+    enable_log:bool,
+    creds_manager: Arc<Mutex<CredsManager>>
 }
 
 impl Cache {
-    pub fn new(port_number: u16, memory_handler: Arc<Mutex<memory_handling::memory_handling::MemoryHandler>>,evict_type:i32,enable_logs:bool) -> Self {
+    pub fn new(port_number: u16, memory_handler: Arc<Mutex<memory_handling::memory_handling::MemoryHandler>>,evict_type:i32,enable_logs:bool,creds: Arc<Mutex<CredsManager>>) -> Self {
         Cache {
             store: Arc::new(Mutex::new(HashMap::new())),
             port: port_number,
             memory_handler,
             evict_type:evict_type,
-            enable_log:enable_logs
+            enable_log:enable_logs,
+            creds_manager:creds
         }
     }
 
-    pub fn set(&self, cluster: String, key: String, value: Vec<u8>, ttl: Option<Duration>) {
-        let memory_usage = std::mem::size_of_val(&value);
+    pub fn set(&self, cluster: String, key: String, value: Vec<u8>, ttl: Option<Duration>,user_name:&str,password:&str) -> bool{
+        if !self.creds_manager.lock().unwrap().authenticate(user_name, password){
+            println!("access denied login first");
+            return false;
+        }
+        else{
+            let memory_usage = std::mem::size_of_val(&value);
 
-        // Check if the memory limit is reached
-        {
-            let mut memory_handler = self.memory_handler.lock().unwrap();
-            if memory_handler.is_memory_limit_finished() {
-                println!("Memory limit exceeded. Evicting entries...");
-                self.evict_entries();
-                if self.enable_log == true {
-                    let  memory_handler_log = Logger::log_info("Memory limit exceeded. Evicting entries");
-                    memory_handler_log.write_log_to_file();
+            // Check if the memory limit is reached
+            {
+                let mut memory_handler = self.memory_handler.lock().unwrap();
+                if memory_handler.is_memory_limit_finished() {
+                    println!("Memory limit exceeded. Evicting entries...");
+                    self.evict_entries();
+                    if self.enable_log == true {
+                        let  memory_handler_log = Logger::log_warn("Memory limit exceeded. Evicting entries");
+                        memory_handler_log.write_log_to_file();
+                    }
                 }
             }
-        }
 
-        if !self.memory_handler.lock().unwrap().is_memory_limit_finished() {
-            let mut store = self.store.lock().unwrap();
-            let cluster_store = store.entry(cluster.clone()).or_insert_with(HashMap::new);
-            let expiration_time = ttl.map(|duration| Instant::now() + duration);
-            cluster_store.insert(key, (value.clone(), expiration_time, ttl));
-            let mut memory_handler = self.memory_handler.lock().unwrap();
-            memory_handler.add_memory(memory_usage);
+            if !self.memory_handler.lock().unwrap().is_memory_limit_finished() {
+                let mut store = self.store.lock().unwrap();
+                let cluster_store = store.entry(cluster.clone()).or_insert_with(HashMap::new);
+                let expiration_time = ttl.map(|duration| Instant::now() + duration);
+                cluster_store.insert(key, (value.clone(), expiration_time, ttl));
+                let mut memory_handler = self.memory_handler.lock().unwrap();
+                memory_handler.add_memory(memory_usage);
 
-            println!("Set value in cluster [{}]", &cluster);
-            if self.enable_log == true {
-                let  set_log = Logger::log_info("Set value in cluster");
-                set_log.write_log_to_file();
-            }
-        } else {
-            println!("Failed to set value: Memory usage has exceeded the configured limit. Update your configuration JSON file.");
-            if self.enable_log == true {
-                let  error_set_log = Logger::log_info("Failed to set value: Memory usage has exceeded the configured limit. Update your configuration JSON file.");
-                error_set_log.write_log_to_file();
+                println!("Set value in cluster [{}]", &cluster);
+                if self.enable_log == true {
+                    let  set_log = Logger::log_info("Set value in cluster");
+                    set_log.write_log_to_file();
+                }
+                return true;
+            } else {
+                println!("Failed to set value: Memory usage has exceeded the configured limit. Update your configuration JSON file.");
+                if self.enable_log == true {
+                    let  error_set_log = Logger::log_info("Failed to set value: Memory usage has exceeded the configured limit. Update your configuration JSON file.");
+                    error_set_log.write_log_to_file();
+                }
+                return false;
             }
         }
     }
