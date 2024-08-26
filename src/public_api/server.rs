@@ -133,9 +133,21 @@ pub async fn set(
 
 pub async fn get(
     cache: web::Data<Arc<Mutex<Cache>>>,
+    creds: web::Data<Arc<Mutex<CredsManager>>>,
     info: web::Path<(String, String)>,
+    req: HttpRequest,
 ) -> HttpResponse {
     let (cluster, key) = info.into_inner();
+    let headers: &HeaderMap = req.headers();
+    let auth = headers.get("Authorization").unwrap().to_str().unwrap();
+    let decoded_bytes = decode(auth.clone()).expect("Failed to decode Base64 string");
+    let decoded_credentials = std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
+    let creds_vec: Vec<&str> = decoded_credentials.split(":").collect();
+    let username = creds_vec.get(0).unwrap();
+    let password = creds_vec.get(1).unwrap();
+    if !creds.lock().unwrap().authenticate(username, password) {
+        return HttpResponse::Unauthorized().json(ApiResponse::fail("Authentication failed"));
+    }
     match cache.lock().unwrap().get(&cluster, &key) {
         Some(value) => HttpResponse::Ok().json(ApiResponse::ok(value)),
         None => HttpResponse::NotFound().json(ApiResponse::fail("Key not found")),
@@ -144,34 +156,86 @@ pub async fn get(
 
 pub async fn delete(
     cache: web::Data<Arc<Mutex<Cache>>>,
+    creds: web::Data<Arc<Mutex<CredsManager>>>,
     info: web::Path<(String, String)>,
+    req: HttpRequest,
 ) -> HttpResponse {
     let (cluster, key) = info.into_inner();
+    let headers: &HeaderMap = req.headers();
+    let auth = headers.get("Authorization").unwrap().to_str().unwrap();
+    let decoded_bytes = decode(auth.clone()).expect("Failed to decode Base64 string");
+    let decoded_credentials = std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
+    let creds_vec: Vec<&str> = decoded_credentials.split(":").collect();
+    let username = creds_vec.get(0).unwrap();
+    let password = creds_vec.get(1).unwrap();
+
+    if !creds.lock().unwrap().authenticate(username, password) {
+        return HttpResponse::Unauthorized().json(ApiResponse::fail("Authentication failed"));
+    }
     cache.lock().unwrap().delete(&cluster, &key);
     HttpResponse::Ok().json(ApiResponse::ok("Delete operation successful"))
 }
 
 pub async fn clear_cluster(
     cache: web::Data<Arc<Mutex<Cache>>>,
+    creds: web::Data<Arc<Mutex<CredsManager>>>,
     cluster: web::Path<String>,
+    req: HttpRequest,
 ) -> HttpResponse {
+    let headers: &HeaderMap = req.headers();
+    let auth = headers.get("Authorization").unwrap().to_str().unwrap();
+    let decoded_bytes = decode(auth.clone()).expect("Failed to decode Base64 string");
+    let decoded_credentials = std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
+    let creds_vec: Vec<&str> = decoded_credentials.split(":").collect();
+    let username = creds_vec.get(0).unwrap();
+    let password = creds_vec.get(1).unwrap();
+
+    if !creds.lock().unwrap().authenticate(username, password) {
+        return HttpResponse::Unauthorized().json(ApiResponse::fail("Authentication failed"));
+    }
     cache.lock().unwrap().clear_cluster(&cluster);
     HttpResponse::Ok().json(ApiResponse::ok("Clear cluster operation successful"))
 }
 
 pub async fn get_keys_of_cluster(
     cache: web::Data<Arc<Mutex<Cache>>>,
+    creds: web::Data<Arc<Mutex<CredsManager>>>,
     cluster: web::Path<String>,
+    req: HttpRequest,
 ) -> HttpResponse {
     let cluster_name = cluster.into_inner();
+    let headers: &HeaderMap = req.headers();
+    let auth = headers.get("Authorization").unwrap().to_str().unwrap();
+    let decoded_bytes = decode(auth.clone()).expect("Failed to decode Base64 string");
+    let decoded_credentials = std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
+    let creds_vec: Vec<&str> = decoded_credentials.split(":").collect();
+    let username = creds_vec.get(0).unwrap();
+    let password = creds_vec.get(1).unwrap();
+
+    if !creds.lock().unwrap().authenticate(username, password) {
+        return HttpResponse::Unauthorized().json(ApiResponse::fail("Authentication failed"));
+    }
     let keys = cache.lock().unwrap().get_keys_of_cluster(&cluster_name);
     HttpResponse::Ok().json(ApiResponse::ok(keys))
 }
 
 pub async fn get_all_clusters(
     cache: web::Data<Arc<Mutex<Cache>>>,
+    creds: web::Data<Arc<Mutex<CredsManager>>>,
+    req: HttpRequest,
 ) -> HttpResponse {
     let clusters = cache.lock().unwrap().get_all_clusters();
+    let headers: &HeaderMap = req.headers();
+    let auth = headers.get("Authorization").unwrap().to_str().unwrap();
+    let decoded_bytes = decode(auth.clone()).expect("Failed to decode Base64 string");
+    let decoded_credentials = std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
+    let creds_vec: Vec<&str> = decoded_credentials.split(":").collect();
+    let username = creds_vec.get(0).unwrap();
+    let password = creds_vec.get(1).unwrap();
+
+    if !creds.lock().unwrap().authenticate(username, password) {
+        return HttpResponse::Unauthorized().json(ApiResponse::fail("Authentication failed"));
+    }
     if !clusters.is_empty() {
         HttpResponse::Ok().json(ApiResponse::ok(clusters))
     } else {
@@ -184,10 +248,23 @@ pub async fn check_connection() -> HttpResponse {
 }
 
 pub async fn set_cluster(
+    creds: web::Data<Arc<Mutex<CredsManager>>>,
     cache: web::Data<Arc<Mutex<Cache>>>,
     cluster: web::Path<String>,
+    req: HttpRequest,
 ) -> HttpResponse {
     let cluster_name = cluster.into_inner();
+    let headers: &HeaderMap = req.headers();
+    let auth = headers.get("Authorization").unwrap().to_str().unwrap();
+    let decoded_bytes = decode(auth.clone()).expect("Failed to decode Base64 string");
+    let decoded_credentials = std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
+    let creds_vec: Vec<&str> = decoded_credentials.split(":").collect();
+    let username = creds_vec.get(0).unwrap();
+    let password = creds_vec.get(1).unwrap();
+
+    if !creds.lock().unwrap().authenticate(username, password) {
+        return HttpResponse::Unauthorized().json(ApiResponse::fail("Authentication failed"));
+    }
     cache.lock().unwrap().set_cluster(cluster_name);
     HttpResponse::Ok().json(ApiResponse::ok("Cluster set operation successful"))
 }
