@@ -41,7 +41,7 @@ fn main() {
         let  log = Logger::log_info("application starting...");
         log.write_log_to_file();
         let memory_handler = Arc::new(Mutex::new(MemoryHandler::new()));
-        let cred_manager = Arc::new(Mutex::new(CredsManager::new()));
+        let cred_manager = Arc::new(Mutex::new(CredsManager::new(settings.enable_logger)));
         let  memory_log = Logger::log_info("access to memory handling ...");
         memory_log.write_log_to_file();
         let cache = Arc::new(Mutex::new(Cache::new(settings.port, memory_handler.clone(),settings.eviction_strategy,settings.enable_logger,cred_manager.clone())));

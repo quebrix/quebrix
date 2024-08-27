@@ -19,6 +19,13 @@ impl<'a> Logger<'a> {
         }
     }
 
+    pub fn log_info_data(message:&'a String) -> Self {
+        Logger {
+            message,
+            log_type: LogType::Information,
+        }
+    }
+
     pub fn log_error(message: &'a str) -> Self {
         Logger {
             message,
@@ -26,7 +33,21 @@ impl<'a> Logger<'a> {
         }
     }
 
+    pub fn log_error_data(message: &'a String) -> Self {
+        Logger {
+            message,
+            log_type: LogType::Error,
+        }
+    }
+
     pub fn log_warn(message: &'a str) -> Self {
+        Logger {
+            message,
+            log_type: LogType::Warning,
+        }
+    }
+
+    pub fn log_warn_data(message: &'a String) -> Self {
         Logger {
             message,
             log_type: LogType::Warning,
