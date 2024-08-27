@@ -222,7 +222,7 @@ impl CredsManager {
             }
         } else {
             if self.enable_log == true {
-                let message = &format!("Failed to open users file path : {:?}",main_path.clone());
+                let message = &format!("Failed to open users file path");
                 let  set_log = Logger::log_info_data(message);
                 set_log.write_log_to_file();
             }
