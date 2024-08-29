@@ -54,7 +54,7 @@ impl Cache {
 
     pub fn initialize_from_commands(&mut self) {
         let now: DateTime<Local> = Local::now();
-        //let not_windows_persistent_file_name:String = format!(".rus/persistent_{}.rus",now.format("%d-%m-%Y"));
+        let not_windows_persistent_file_name:String = format!(".rus/persistent_{}.rus",now.format("%d-%m-%Y"));
         let windows_persistent_file_name = format!("rus/persistent_{}.rus",now.format("%d-%m-%Y"));
         let mut main_path = env::current_exe().unwrap();
         let main_file = {
@@ -67,8 +67,8 @@ impl Cache {
             #[cfg(not(target_os = "windows"))]
             {
                 main_path.pop();
-               // main_path.push(not_windows_persistent_file_name);
-                OpenOptions::new().read(true).open(main_path)
+                main_path.push(not_windows_persistent_file_name);
+                OpenOptions::new().read(true).open(main_path.clone())
             }
         };
         if let Ok(file) = File::open(main_path) {

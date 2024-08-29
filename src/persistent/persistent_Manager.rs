@@ -28,10 +28,10 @@ pub fn write_to_persistent_file(command: &String) -> std::io::Result<()> {
         path.push(".rus");
 
         if !path.exists() {
-            let set_log = Logger::log_info_data("folder rus/.rus is not exist create folder ...");
+            let set_log = Logger::log_info("folder rus is not exist create folder ...");
             set_log.write_log_to_file();
             std::fs::create_dir_all(&path)?;
-            let log = Logger::log_info_data("folder rus created");
+            let log = Logger::log_info("folder rus created");
             log.write_log_to_file();
         }
     }
