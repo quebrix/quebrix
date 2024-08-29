@@ -172,7 +172,7 @@ pub async fn delete(
     if !creds.lock().unwrap().authenticate(username, password) {
         return HttpResponse::Unauthorized().json(ApiResponse::fail("Authentication failed"));
     }
-    cache.lock().unwrap().delete(&cluster, &key);
+    cache.lock().unwrap().delete(&cluster, &key,false);
     HttpResponse::Ok().json(ApiResponse::ok("Delete operation successful"))
 }
 
@@ -193,7 +193,7 @@ pub async fn clear_cluster(
     if !creds.lock().unwrap().authenticate(username, password) {
         return HttpResponse::Unauthorized().json(ApiResponse::fail("Authentication failed"));
     }
-    cache.lock().unwrap().clear_cluster(&cluster);
+    cache.lock().unwrap().clear_cluster(&cluster,false);
     HttpResponse::Ok().json(ApiResponse::ok("Clear cluster operation successful"))
 }
 

@@ -124,22 +124,16 @@ impl Cache {
             if parts.len() == 3 {
                 let cluster = parts[1].to_string();
                 let key = parts[2].to_string();
-                self.delete(&cluster.as_str(), &key.as_str())
+                self.delete(&cluster.as_str(), &key.as_str(),true)
             }
         }
         "CLEAR_CLUSTER" => {
             if parts.len() == 2 {
                 let cluster = parts[1];
-                self.clear_cluster(cluster);
+                self.clear_cluster(cluster,true);
             }
         }
-        "CLEAR_ALL" => self.clear_all(),
-        "SET_CLUSTER" => {
-            if parts.len() == 2 {
-                let cluster = parts[1].to_string();
-                self.set_cluster(cluster);
-            }
-        }
+        "CLEAR_ALL" => self.clear_all(true),
         _ => println!("Unknown command: {}", command),
         }
     }
@@ -233,7 +227,7 @@ impl Cache {
         store.get(cluster).map(|cluster_store| cluster_store.keys().cloned().collect())
     }
 
-    pub fn delete(&self, cluster: &str, key: &str) {
+    pub fn delete(&self, cluster: &str, key: &str,ignore_persistent:bool) {
         let mut store = self.store.lock().unwrap();
         if let Some(cluster_store) = store.get_mut(cluster) {
             if let Some((value, _, _)) = cluster_store.remove(key) {
@@ -243,7 +237,7 @@ impl Cache {
                 if self.enable_log == true {
                     let  delete_log = Logger::log_info("value deleted ");
                     delete_log.write_log_to_file();
-                    if self.persistent{
+                    if self.persistent && !ignore_persistent{
                         let command = format!("DEL {} {}",cluster.clone(),key.clone());
                         persistent_Manager::write_to_persistent_file(&command);
                     }
@@ -252,7 +246,7 @@ impl Cache {
         }
     }
 
-    pub fn clear_cluster(&self, cluster: &str) {
+    pub fn clear_cluster(&self, cluster: &str,ignore_persistent:bool) {
         let mut store = self.store.lock().unwrap();
         if let Some(cluster_store) = store.remove(cluster) {
             let mut memory_handler = self.memory_handler.lock().unwrap();
@@ -261,7 +255,7 @@ impl Cache {
             if self.enable_log == true {
                 let  clear_cluster_log = Logger::log_info("cluster cleared ");
                 clear_cluster_log.write_log_to_file();
-                if self.persistent{
+                if self.persistent && !ignore_persistent{
                     let command = format!("CLEAR_CLUSTER {}",cluster.clone());
                     persistent_Manager::write_to_persistent_file(&command);
                 }
@@ -269,7 +263,7 @@ impl Cache {
         }
     }
 
-    pub fn clear_all(&self) {
+    pub fn clear_all(&self,ignore_persistent:bool) {
         let mut store = self.store.lock().unwrap();
         let mut memory_handler = self.memory_handler.lock().unwrap();
         let total_size: usize = store.values()
@@ -278,7 +272,7 @@ impl Cache {
             .sum();
         store.clear();
         memory_handler.delete_memory(total_size);
-        if self.persistent{
+        if self.persistent && !ignore_persistent{
             let command = format!("CLEAR_ALL");
             persistent_Manager::write_to_persistent_file(&command);
         }
