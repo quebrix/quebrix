@@ -9,7 +9,8 @@ pub struct Settings {
     pub memory_size_limit: usize,
     pub eviction_strategy:i32,
     pub enable_logger:bool,
-    pub persistent:bool
+    pub persistent:bool,
+    pub retention_policy:i64
 }
 
 impl Settings {

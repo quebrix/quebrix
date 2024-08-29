@@ -5,7 +5,9 @@ mod cache;
 mod crypto;
 mod creds;
 mod persistent;
+mod jobs;
 use crate::logger::logger_manager::Logger;
+use crate::jobs::retention_policy_job;
 mod public_api;
 mod config;
 mod memory_handling;
@@ -30,7 +32,6 @@ fn main() {
     println!("
     ");
     
-    
     // Reading configurations from config.json
     let settings: Settings = Settings::new();
     if settings.eviction_strategy > 3 {
@@ -50,6 +51,15 @@ fn main() {
         let cred_clone = Arc::clone(&cred_manager);
         let  cache_log = Logger::log_info("cahce successfully instaled ...");
         cache_log.write_log_to_file();
+        std::thread::spawn( move || {
+            loop {
+                retention_policy_job::run_retention_policy(settings.retention_policy);
+                let now = std::time::SystemTime::now();
+                let next_run = now + std::time::Duration::from_secs(24 * 60 * 60);
+                let sleep_duration = next_run.duration_since(now).unwrap_or_else(|_| std::time::Duration::from_secs(0));
+                std::thread::sleep(sleep_duration);
+            }
+        });
         std::thread::spawn(move || {
             actix_web::rt::System::new().block_on(async move {
                 let settings: Settings = Settings::new();
@@ -65,3 +75,4 @@ fn main() {
        
     }
 }
+
