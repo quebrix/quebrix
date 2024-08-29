@@ -8,7 +8,8 @@ pub struct Settings {
     pub port: u16,
     pub memory_size_limit: usize,
     pub eviction_strategy:i32,
-    pub enable_logger:bool
+    pub enable_logger:bool,
+    pub persistent:bool
 }
 
 impl Settings {

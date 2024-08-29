@@ -4,6 +4,7 @@ use memory_handling::memory_handling::MemoryHandler;
 mod cache;
 mod crypto;
 mod creds;
+mod persistent;
 use crate::logger::logger_manager::Logger;
 mod public_api;
 mod config;
@@ -44,7 +45,7 @@ fn main() {
         let cred_manager = Arc::new(Mutex::new(CredsManager::new(settings.enable_logger)));
         let  memory_log = Logger::log_info("access to memory handling ...");
         memory_log.write_log_to_file();
-        let cache = Arc::new(Mutex::new(Cache::new(settings.port, memory_handler.clone(),settings.eviction_strategy,settings.enable_logger,cred_manager.clone())));
+        let cache = Arc::new(Mutex::new(Cache::new(settings.port, memory_handler.clone(),settings.eviction_strategy,settings.enable_logger,settings.persistent,cred_manager.clone())));
         let cache_clone = Arc::clone(&cache);
         let cred_clone = Arc::clone(&cred_manager);
         let  cache_log = Logger::log_info("cahce successfully instaled ...");

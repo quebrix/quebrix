@@ -122,7 +122,7 @@ pub async fn set(
 
     let set_value = value.as_bytes();
     let ttl_duration = ttl.map(Duration::from_millis);
-    let set_result = cache.lock().unwrap().set(cluster.clone(), key.clone(), Vec::from(set_value), ttl_duration, username, password);
+    let set_result = cache.lock().unwrap().set(cluster.clone(), key.clone(), Vec::from(set_value), ttl_duration,false);
     
     if set_result {
         HttpResponse::Ok().json(ApiResponse::ok("Set operation successful"))
@@ -172,7 +172,7 @@ pub async fn delete(
     if !creds.lock().unwrap().authenticate(username, password) {
         return HttpResponse::Unauthorized().json(ApiResponse::fail("Authentication failed"));
     }
-    cache.lock().unwrap().delete(&cluster, &key);
+    cache.lock().unwrap().delete(&cluster, &key,false);
     HttpResponse::Ok().json(ApiResponse::ok("Delete operation successful"))
 }
 
@@ -193,7 +193,7 @@ pub async fn clear_cluster(
     if !creds.lock().unwrap().authenticate(username, password) {
         return HttpResponse::Unauthorized().json(ApiResponse::fail("Authentication failed"));
     }
-    cache.lock().unwrap().clear_cluster(&cluster);
+    cache.lock().unwrap().clear_cluster(&cluster,false);
     HttpResponse::Ok().json(ApiResponse::ok("Clear cluster operation successful"))
 }
 
@@ -295,3 +295,4 @@ pub async fn run_server(
     .run()
     .await
 }
+

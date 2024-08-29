@@ -2,5 +2,6 @@
     "port":6022,
     "memory_size_limit":100,
     "eviction_strategy":1,
-    "enable_logger" :true
+    "enable_logger" :true,
+    "persistent":true
 }
