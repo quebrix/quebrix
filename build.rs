@@ -51,6 +51,7 @@ fn main() {
     #[cfg(not(target_os = "windows"))]{
 
        let mut config_dest = PathBuf::from(out_dir.clone());
+      config_dest.push("config.json"); 
        config_dest.push(".."); 
        config_dest.push(".."); 
        config_dest.push(".."); 
