@@ -9,7 +9,7 @@ pub fn write_to_persistent_file(command: &String) -> std::io::Result<()> {
 
     #[cfg(target_os = "windows")]
     {
-        path.push("rus");
+        path.push("data/persistent");
 
         if !path.exists() {
             let set_log = Logger::log_info("folder rus is not exist create folder ...");
@@ -25,7 +25,7 @@ pub fn write_to_persistent_file(command: &String) -> std::io::Result<()> {
     }
     #[cfg(not(target_os = "windows"))]
     {
-        path.push(".rus");
+        path.push(".data/persistent");
 
         if !path.exists() {
             let set_log = Logger::log_info("folder rus is not exist create folder ...");
