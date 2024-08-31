@@ -51,12 +51,12 @@ fn main() {
     #[cfg(not(target_os = "windows"))]{
 
        let mut config_dest = PathBuf::from(out_dir.clone());
-      config_dest.push("config.json"); 
        config_dest.push(".."); 
        config_dest.push(".."); 
        config_dest.push(".."); 
        config_dest.push("config"); 
        fs::create_dir_all(&config_dest).unwrap();
+       config_dest.push("config.json"); 
        fs::copy(src, &config_dest).unwrap();
        println!("cargo:rerun-if-changed={}", src);
     }
