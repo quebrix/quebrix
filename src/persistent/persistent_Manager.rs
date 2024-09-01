@@ -9,29 +9,29 @@ pub fn write_to_persistent_file(command: &String) -> std::io::Result<()> {
 
     #[cfg(target_os = "windows")]
     {
-        path.push("rus");
+        path.push("data/persistent");
 
         if !path.exists() {
-            let set_log = Logger::log_info("folder rus is not exist create folder ...");
+            let set_log = Logger::log_info("data/persistent directory is not exist create directory ...");
             set_log.write_log_to_file();
             std::fs::create_dir_all(&path)?;
             std::process::Command::new("attrib")
                 .arg("+H")
                 .arg(&path)
                 .output()?;
-            let log = Logger::log_info("folder rus created");
+            let log = Logger::log_info("data/persistent directory created");
             log.write_log_to_file();
         }
     }
     #[cfg(not(target_os = "windows"))]
     {
-        path.push(".rus");
+        path.push(".data/persistent");
 
         if !path.exists() {
-            let set_log = Logger::log_info("folder rus is not exist create folder ...");
+            let set_log = Logger::log_info("data/persistent directory is not exist create directory ...");
             set_log.write_log_to_file();
             std::fs::create_dir_all(&path)?;
-            let log = Logger::log_info("folder rus created");
+            let log = Logger::log_info("data/persistent directory created");
             log.write_log_to_file();
         }
     }
@@ -43,7 +43,7 @@ pub fn write_to_persistent_file(command: &String) -> std::io::Result<()> {
         let set_log = Logger::log_info("persistent file is not exist create file ...");
         set_log.write_log_to_file();
         std::fs::File::create(&path)?;
-        let log = Logger::log_info("folder rus created");
+        let log = Logger::log_info("persistent file created");
         log.write_log_to_file();
     }
     let mut file = OpenOptions::new().append(true).open(path.clone())?;
