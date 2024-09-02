@@ -1,61 +1,27 @@
-use std::{env, fs::{File, OpenOptions}, io::{BufReader, Write}, path::PathBuf};
-use std::fmt;
+use crate::{known_directories::KNOWN_DIRECTORIES, logger::logger_manager::Logger};
 use chrono::prelude::*;
-use crate::{logger::logger_manager::Logger, main};
+use std::{env, fs::OpenOptions, io::Write, path::PathBuf};
 
 pub fn write_to_persistent_file(command: &String) -> std::io::Result<()> {
-    let mut path: PathBuf = env::current_exe().unwrap();
-    path.pop();
+    let kn_dir = &KNOWN_DIRECTORIES.lock().unwrap();
 
-    #[cfg(target_os = "windows")]
-    {
-        path.push("data/persistent");
-
-        if !path.exists() {
-            let set_log = Logger::log_info("data/persistent directory is not exist create directory ...");
-            set_log.write_log_to_file();
-            std::fs::create_dir_all(&path)?;
-            std::process::Command::new("attrib")
-                .arg("+H")
-                .arg(&path)
-                .output()?;
-            let log = Logger::log_info("data/persistent directory created");
-            log.write_log_to_file();
-        }
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        path.push(".data/persistent");
-
-        if !path.exists() {
-            let set_log = Logger::log_info("data/persistent directory is not exist create directory ...");
-            set_log.write_log_to_file();
-            std::fs::create_dir_all(&path)?;
-            let log = Logger::log_info("data/persistent directory created");
-            log.write_log_to_file();
-        }
-    }
     let now: DateTime<Local> = Local::now();
-    let persistent_file_name = format!("persistent_{}.rus",now.format("%d-%m-%Y"));
-    path.push(persistent_file_name);
+    let persistent_file_name = format!("persistent_{}.rus", now.format("%d-%m-%Y"));
+    let persistent_file_path =
+        PathBuf::from(&kn_dir.persistent_directory).join(&persistent_file_name);
 
-    if !path.exists() {
+    if !persistent_file_path.exists() {
         let set_log = Logger::log_info("persistent file is not exist create file ...");
         set_log.write_log_to_file();
-        std::fs::File::create(&path)?;
+        std::fs::File::create(&persistent_file_path)?;
         let log = Logger::log_info("persistent file created");
         log.write_log_to_file();
     }
-    let mut file = OpenOptions::new().append(true).open(path.clone())?;
+    let mut file = OpenOptions::new().append(true).open(persistent_file_path)?;
     let formated_command = format!("{}", command.clone());
     writeln!(file, "{}", formated_command)?;
-    let message = format!("command:{} set in persistent",command.clone());
+    let message = format!("command:{} set in persistent", command.clone());
     let command_log = Logger::log_info_data(&message);
     command_log.write_log_to_file();
     Ok(())
 }
-
-
-
-
-

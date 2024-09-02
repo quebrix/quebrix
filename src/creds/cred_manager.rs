@@ -1,25 +1,22 @@
-
+use crate::known_directories::KNOWN_DIRECTORIES;
+use crate::logger::logger_manager::Logger;
+use serde::Deserialize;
 use std::collections::HashMap;
-use std::str::FromStr;
-use std::fmt;
-use std::env;
 use std::fs::{self, OpenOptions};
 use std::io::{self, BufRead, BufReader, Write};
-use std::path::{Path, PathBuf};
-use actix_web::body::MessageBody;
-use serde::Deserialize;
-use crate::logger::logger_manager::Logger;
+use std::path::PathBuf;
+use std::str::FromStr;
 
 use crate::crypto::crypto_service::Encryptor;
 
 #[derive(Clone, Debug)]
 pub struct User {
     username: String,
-    password: Vec<u8>, 
+    password: Vec<u8>,
     role: RoleManagement,
 }
 
-#[derive(Clone, Debug, PartialEq,Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 pub enum RoleManagement {
     Admin = 0,
     Developer = 1,
@@ -67,60 +64,73 @@ impl std::error::Error for ParseUserRoleError {}
 
 pub struct CredsManager {
     users: HashMap<String, User>,
-    enable_log:bool
+    enable_log: bool,
 }
 
 const ENCRYPT_KEY: &str = "QWERTYUIOPASdfgCBxzjfndeuAQwudhAsd";
 const IV_PATTERN: [u8; 16] = [2, 2, 5, 8, 5, 1, 3, 5, 6, 7, 9, 1, 6, 4, 1, 9];
 
 impl CredsManager {
-    pub fn new(enable_log:bool) -> Self {
+    pub fn new(enable_log: bool) -> Self {
         let mut creds_manager = CredsManager {
             users: HashMap::new(),
-            enable_log:enable_log
+            enable_log: enable_log,
         };
         creds_manager.load_users_from_file();
         if creds_manager.enable_log == true {
-            let message = &format!("Users loaded : {:?}",creds_manager.users);
-            let  set_log = Logger::log_info_data(message);
+            let message = &format!("Users loaded : {:?}", creds_manager.users);
+            let set_log = Logger::log_info_data(message);
             set_log.write_log_to_file();
         }
         creds_manager
     }
 
-    pub fn is_admin(&mut self, user:&User) -> bool {
+    pub fn is_admin(&mut self, user: &User) -> bool {
         let user_in_hashmap = self.users.get(&user.username).unwrap();
-        if user_in_hashmap.role == RoleManagement::Admin{
+        if user_in_hashmap.role == RoleManagement::Admin {
             return true;
-        }else{
+        } else {
             return false;
         }
     }
 
-    pub fn get_user(&mut self ,username:&str) ->User{
-        self.users.get(username.clone()).unwrap().clone()
+    pub fn get_user(&mut self, username: &str) -> User {
+        self.users.get(username).unwrap().clone()
     }
 
     // Add a new user (Admin only)
-    pub fn add_user(&mut self, username: String, password: String, role: RoleManagement, current_user: Option<&User>) -> io::Result<()> {
-        if current_user.is_some(){
+    pub fn add_user(
+        &mut self,
+        username: String,
+        password: String,
+        role: RoleManagement,
+        current_user: Option<&User>,
+    ) -> io::Result<()> {
+        if current_user.is_some() {
             if !current_user.unwrap().role.can_manage_users() {
                 if self.enable_log == true {
                     let message = "developer wants to add new profile : Access denied";
-                    let  set_log = Logger::log_warn(message);
+                    let set_log = Logger::log_warn(message);
                     set_log.write_log_to_file();
                 }
-                return Err(io::Error::new(io::ErrorKind::PermissionDenied, "Permission denied: Admin role required to add users"));
+                return Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    "Permission denied: Admin role required to add users",
+                ));
             }
         }
         let encryptor = Encryptor::new(ENCRYPT_KEY, IV_PATTERN);
         let hashed_password = encryptor.encrypt(&password);
-        let user = User { username: username.clone(), password: hashed_password, role };
+        let user = User {
+            username: username.clone(),
+            password: hashed_password,
+            role,
+        };
         self.users.insert(username.clone(), user);
         self.write_user_to_file(&username)?;
         if self.enable_log == true {
-            let message = &format!("new user added : {:?}",username.clone());
-            let  set_log = Logger::log_info_data(message);
+            let message = &format!("new user added : {:?}", username.clone());
+            let set_log = Logger::log_info_data(message);
             set_log.write_log_to_file();
         }
         Ok(())
@@ -128,7 +138,7 @@ impl CredsManager {
 
     pub fn authenticate(&self, username: &str, password: &str) -> bool {
         let encryptor = Encryptor::new(ENCRYPT_KEY, IV_PATTERN);
-        
+
         if let Some(user) = self.users.get(username) {
             match encryptor.decrypt(&user.password) {
                 Some(decrypted_password) => {
@@ -136,8 +146,9 @@ impl CredsManager {
                         return true;
                     } else {
                         if self.enable_log == true {
-                            let message = &format!("password not match with user : {:?}",username.clone());
-                            let  set_log = Logger::log_warn_data(message);
+                            let message =
+                                &format!("password not match with user : {:?}", username.clone());
+                            let set_log = Logger::log_warn_data(message);
                             set_log.write_log_to_file();
                         }
                         println!("Passwords do not match for user: {}", username);
@@ -147,7 +158,7 @@ impl CredsManager {
                 None => {
                     if self.enable_log == true {
                         let message = "Failed to decrypt password for login";
-                        let  set_log = Logger::log_error(message);
+                        let set_log = Logger::log_error(message);
                         set_log.write_log_to_file();
                     }
                     println!("Failed to decrypt password for user: {}", username);
@@ -156,8 +167,11 @@ impl CredsManager {
             }
         } else {
             if self.enable_log == true {
-                let message = &format!("Users [{}] with password:[{:?}] not found in login",username.clone(),password.clone());
-                let  set_log = Logger::log_info_data(message);
+                let message = &format!(
+                    "Users [{}] with password:[{:?}] not found in login",
+                    username, password
+                );
+                let set_log = Logger::log_info_data(message);
                 set_log.write_log_to_file();
             }
             println!("User not found: {}:{:?}", username, password);
@@ -166,10 +180,15 @@ impl CredsManager {
     }
 
     fn load_users_from_file(&mut self) {
-        let _ = self.add_user("admin".to_string(), "123456".to_string(), RoleManagement::Admin,None);
+        let _ = self.add_user(
+            "admin".to_string(),
+            "123456".to_string(),
+            RoleManagement::Admin,
+            None,
+        );
         if self.enable_log == true {
             let message = "default user added";
-            let  set_log = Logger::log_info(message);
+            let set_log = Logger::log_info(message);
             set_log.write_log_to_file();
         }
         let encryptor = Encryptor::new(ENCRYPT_KEY, IV_PATTERN);
@@ -178,23 +197,14 @@ impl CredsManager {
             self.users = HashMap::new();
         }
 
-        let mut main_path = env::current_exe().unwrap();
-        let main_file = {
-            #[cfg(target_os = "windows")]
-            {
-                main_path.pop();
-                main_path.push("creds/users.txt");
-                OpenOptions::new().read(true).open(main_path.clone())
-            }
-            #[cfg(not(target_os = "windows"))]
-            {
-                main_path.pop();
-                main_path.push(".creds/users.txt");
-                OpenOptions::new().read(true).open(main_path)
-            }
+        let kn_dir = &KNOWN_DIRECTORIES.lock().unwrap();
+        let open_file_result = {
+            OpenOptions::new()
+                .read(true)
+                .open(PathBuf::from(&kn_dir.creds_directory).join("users.txt"))
         };
 
-        if let Ok(file) = main_file {
+        if let Ok(file) = open_file_result {
             let reader = BufReader::new(file);
             for line in reader.lines() {
                 if let Ok(line) = line {
@@ -205,15 +215,18 @@ impl CredsManager {
                         let vec_u8: Vec<u8> = str_numbers
                             .map(|s| s.parse().expect("Invalid byte"))
                             .collect();
-                        self.users.insert(parts[0].to_string(), User {
-                            username: parts[0].to_string(),
-                            password: vec_u8,
-                            role: parts[2].parse::<RoleManagement>().unwrap(),
-                        });
+                        self.users.insert(
+                            parts[0].to_string(),
+                            User {
+                                username: parts[0].to_string(),
+                                password: vec_u8,
+                                role: parts[2].parse::<RoleManagement>().unwrap(),
+                            },
+                        );
                     } else {
                         if self.enable_log == true {
-                            let message = &format!("invalid line format : {:?}",line.clone());
-                            let  set_log = Logger::log_error_data(message);
+                            let message = &format!("invalid line format : {:?}", line.clone());
+                            let set_log = Logger::log_error_data(message);
                             set_log.write_log_to_file();
                         }
                         eprintln!("Invalid line format: {}", line);
@@ -223,7 +236,7 @@ impl CredsManager {
         } else {
             if self.enable_log == true {
                 let message = &format!("Failed to open users file path");
-                let  set_log = Logger::log_info_data(message);
+                let set_log = Logger::log_info_data(message);
                 set_log.write_log_to_file();
             }
             eprintln!("Failed to open users file");
@@ -231,74 +244,41 @@ impl CredsManager {
     }
 
     fn create_admin(&mut self) {
-        let encryptor = Encryptor::new(ENCRYPT_KEY, IV_PATTERN);
-        let mut path: PathBuf = env::current_exe().unwrap();
-        path.pop();
+        let kn_dir = &KNOWN_DIRECTORIES.lock().unwrap();
 
-        #[cfg(target_os = "windows")]
-        {
-            path.push("creds");
+        let users_file = PathBuf::from(&kn_dir.creds_directory).join("users.txt");
 
-            if !path.exists() {
-                fs::create_dir_all(&path).unwrap();
-                std::process::Command::new("attrib")
-                    .arg("+H")
-                    .arg(&path)
-                    .output().unwrap();
-            }
-        }
-        #[cfg(not(target_os = "windows"))]
-        {
-            path.push(".creds");
-
-            if !path.exists() {
-                fs::create_dir_all(&path);
-            }
-        }
-
-        path.push("users.txt");
-
-        if !path.exists() {
-            fs::File::create(&path).unwrap();
-            self.add_user("admin".to_string(), "123456".to_string(), RoleManagement::Admin, None);
+        if !users_file.exists() {
+            fs::File::create(&users_file).unwrap();
+            self.add_user(
+                "admin".to_string(),
+                "123456".to_string(),
+                RoleManagement::Admin,
+                None,
+            )
+            .unwrap();
         }
     }
 
     // Write a new user to the file
     fn write_user_to_file(&self, username: &str) -> io::Result<()> {
-        let mut path: PathBuf = env::current_exe().unwrap();
-        path.pop();
+        let kn_dir = &KNOWN_DIRECTORIES.lock().unwrap();
 
-        #[cfg(target_os = "windows")]
-        {
-            path.push("creds");
+        let users_file = PathBuf::from(&kn_dir.creds_directory).join("users.txt");
 
-            if !path.exists() {
-                fs::create_dir_all(&path)?;
-                std::process::Command::new("attrib")
-                    .arg("+H")
-                    .arg(&path)
-                    .output()?;
-            }
-        }
-        #[cfg(not(target_os = "windows"))]
-        {
-            path.push(".creds");
-
-            if !path.exists() {
-                fs::create_dir_all(&path)?;
-            }
+        if !users_file.exists() {
+            fs::File::create(&users_file)?;
         }
 
-        path.push("users.txt");
-
-        if !path.exists() {
-            fs::File::create(&path)?;
-        }
         let user = self.users.get(username).unwrap();
-        let mut file = OpenOptions::new().append(true).open(path.clone())?;
-        writeln!(file, "{}:{:?}:{}", user.username, user.password, user.role.as_str())?;
+        let mut file = OpenOptions::new().append(true).open(users_file)?;
+        writeln!(
+            file,
+            "{}:{:?}:{}",
+            user.username,
+            user.password,
+            user.role.as_str()
+        )?;
         Ok(())
     }
 }
-
