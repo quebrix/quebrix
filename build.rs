@@ -14,22 +14,22 @@ fn main() {
     #[cfg(target_os = "windows")]{
 
       let mut config_dest = PathBuf::from(out_dir.clone());
-      config_dest.push(".."); 
-      config_dest.push(".."); 
-      config_dest.push(".."); 
+      config_dest.pop(); 
+      config_dest.pop(); 
+      config_dest.pop(); 
       config_dest.push("config"); 
 
       fs::create_dir_all(&config_dest).unwrap();
   
       let mut bat_dest = PathBuf::from(out_dir.clone());
-      bat_dest.push(".."); 
-      bat_dest.push(".."); 
-      bat_dest.push(".."); 
+      bat_dest.pop(); 
+      bat_dest.pop(); 
+      bat_dest.pop(); 
   
       let mut nssm_dest = PathBuf::from(out_dir.clone());
-      nssm_dest.push(".."); 
-      nssm_dest.push(".."); 
-      nssm_dest.push(".."); 
+      nssm_dest.pop(); 
+      nssm_dest.pop(); 
+      nssm_dest.pop(); 
       nssm_dest.push("nssm");
 
       fs::create_dir_all(&nssm_dest).unwrap();
@@ -51,9 +51,9 @@ fn main() {
     #[cfg(not(target_os = "windows"))]{
 
        let mut config_dest = PathBuf::from(out_dir.clone());
-       config_dest.push(".."); 
-       config_dest.push(".."); 
-       config_dest.push(".."); 
+       config_dest.pop(); 
+       config_dest.pop(); 
+       config_dest.pop(); 
        config_dest.push("config"); 
        fs::create_dir_all(&config_dest).unwrap();
        config_dest.push("config.json"); 

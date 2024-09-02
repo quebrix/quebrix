@@ -5,7 +5,7 @@ use crate::{logger::logger_manager::Logger, main};
 
 pub fn write_to_persistent_file(command: &String) -> std::io::Result<()> {
     let mut path: PathBuf = env::current_exe().unwrap();
-    path.push("..");
+    path.pop();
 
     #[cfg(target_os = "windows")]
     {
