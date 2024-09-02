@@ -50,6 +50,53 @@ struct SetRequest {
     ttl: Option<u64>, // Duration in milliseconds
 }
 
+pub async fn get_stats(
+    creds: web::Data<Arc<Mutex<CredsManager>>>,
+    cache: web::Data<Arc<Mutex<Cache>>>,
+    req: HttpRequest,
+) -> HttpResponse{
+    let headers: &HeaderMap = req.headers();
+    let auth = headers.get("Authorization").unwrap().to_str().unwrap();
+    let decoded_bytes = decode(auth.clone()).expect("Failed to decode Base64 string");
+    let decoded_credentials = std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
+    let creds_vec: Vec<&str> = decoded_credentials.split(":").collect();
+    let username = creds_vec.get(0).unwrap();
+    let password = creds_vec.get(1).unwrap();
+
+    if !creds.lock().unwrap().authenticate(username, password) {
+        return HttpResponse::Unauthorized().json(ApiResponse::fail("Authentication failed"));
+    }
+    let stat = cache.lock().unwrap().get_stats();
+    return HttpResponse::Ok().json(ApiResponse::ok(stat));
+}
+
+pub async fn size_of(
+    creds: web::Data<Arc<Mutex<CredsManager>>>,
+    cache: web::Data<Arc<Mutex<Cache>>>,
+    cluster: web::Path<String>,
+    req: HttpRequest,
+) -> HttpResponse{
+    let cluster_name = cluster.into_inner();
+    let headers: &HeaderMap = req.headers();
+    let auth = headers.get("Authorization").unwrap().to_str().unwrap();
+    let decoded_bytes = decode(auth.clone()).expect("Failed to decode Base64 string");
+    let decoded_credentials = std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
+    let creds_vec: Vec<&str> = decoded_credentials.split(":").collect();
+    let username = creds_vec.get(0).unwrap();
+    let password = creds_vec.get(1).unwrap();
+
+    if !creds.lock().unwrap().authenticate(username, password) {
+        return HttpResponse::Unauthorized().json(ApiResponse::fail("Authentication failed"));
+    }
+
+    let result = cache.lock().unwrap().value_size(cluster_name);
+    if result > 0{
+        return HttpResponse::Ok().json(ApiResponse::ok(result));
+    }else{
+        return HttpResponse::Ok().json(ApiResponse::fail("cluster not found"));
+    }
+}
+
 pub async fn add_user(
     creds: web::Data<Arc<Mutex<CredsManager>>>,
     payload: web::Json<UserRequest>,
@@ -280,7 +327,9 @@ pub async fn run_server(
             .wrap(Logger::default()) // Enable request logging
             .app_data(web::Data::new(cache.clone()))
             .app_data(web::Data::new(creds.clone()))
+            .route("/api/size_of/{cluster}", web::get().to(size_of))
             .route("/api/set", web::post().to(set))
+            .route("/api/get_stats", web::get().to(get_stats))
             .route("/api/get/{cluster}/{key}", web::get().to(get))
             .route("/api/ping", web::get().to(check_connection))
             .route("/api/delete/{cluster}/{key}", web::delete().to(delete))
