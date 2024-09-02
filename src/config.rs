@@ -17,7 +17,7 @@ impl Settings {
     pub fn new() -> Self {
         let mut current_dir = env::current_exe()
             .expect("Failed to get current directory");
-        current_dir.push("..");
+        current_dir.pop();
         let config_path = current_dir.join("config").join("config.json");
         let file = File::open(&config_path)
             .expect(format!("config.json file not found in {}",config_path.as_os_str().to_str().unwrap()).as_str());

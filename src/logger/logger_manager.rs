@@ -56,7 +56,7 @@ impl<'a> Logger<'a> {
 
     pub fn write_log_to_file(&self) {
         let mut file_dir_path:PathBuf = std::env::current_exe().unwrap(); 
-        file_dir_path.push("..");
+        file_dir_path.pop();
         file_dir_path.push("Logs");
         let now: DateTime<Local> = Local::now();
         let formatted_date = now.format("%d-%m-%Y %H:%M:%S %A").to_string();
@@ -65,6 +65,7 @@ impl<'a> Logger<'a> {
             std::fs::create_dir_all(file_dir_path.clone());
         }
         file_dir_path.push(log_file_name.clone());
+        println!("{:?}",file_dir_path);
         if !file_dir_path.exists(){
             File::create(file_dir_path.clone()).expect("Failed to create logger file");
         }

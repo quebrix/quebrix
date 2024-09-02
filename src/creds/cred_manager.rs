@@ -233,7 +233,7 @@ impl CredsManager {
     fn create_admin(&mut self) {
         let encryptor = Encryptor::new(ENCRYPT_KEY, IV_PATTERN);
         let mut path: PathBuf = env::current_exe().unwrap();
-        path.push("..");
+        path.pop();
 
         #[cfg(target_os = "windows")]
         {
@@ -267,7 +267,7 @@ impl CredsManager {
     // Write a new user to the file
     fn write_user_to_file(&self, username: &str) -> io::Result<()> {
         let mut path: PathBuf = env::current_exe().unwrap();
-        path.push("..");
+        path.pop();
 
         #[cfg(target_os = "windows")]
         {
