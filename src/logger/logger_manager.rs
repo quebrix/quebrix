@@ -1,9 +1,16 @@
-use std::{fs::{File, OpenOptions}, io::Write, path::PathBuf,path::Path};
 use chrono::prelude::*;
-pub enum LogType{
+use std::{
+    fs::{File, OpenOptions},
+    io::Write,
+    path::Path,
+    path::PathBuf,
+};
+
+use crate::known_directories::KNOWN_DIRECTORIES;
+pub enum LogType {
     Information,
     Error,
-    Warning
+    Warning,
 }
 
 pub struct Logger<'a> {
@@ -19,7 +26,7 @@ impl<'a> Logger<'a> {
         }
     }
 
-    pub fn log_info_data(message:&'a String) -> Self {
+    pub fn log_info_data(message: &'a String) -> Self {
         Logger {
             message,
             log_type: LogType::Information,
@@ -55,28 +62,23 @@ impl<'a> Logger<'a> {
     }
 
     pub fn write_log_to_file(&self) {
-        let mut file_dir_path:PathBuf = std::env::current_exe().unwrap(); 
-        file_dir_path.pop();
-        file_dir_path.push("Logs");
+        let log_dir = &KNOWN_DIRECTORIES.log_directory;
+
         let now: DateTime<Local> = Local::now();
         let formatted_date = now.format("%d-%m-%Y %H:%M:%S %A").to_string();
-        let log_file_name = format!("logger_{}.txt",now.format("%d-%m-%Y"));
-        if !file_dir_path.exists() {
-            std::fs::create_dir_all(file_dir_path.clone());
-        }
-        file_dir_path.push(log_file_name.clone());
-        println!("{:?}",file_dir_path);
-        if !file_dir_path.exists(){
-            File::create(file_dir_path.clone()).expect("Failed to create logger file");
+        let log_file_name = format!("logger_{}.txt", now.format("%d-%m-%Y"));
+        let log_file_path = PathBuf::from(log_dir).join(log_file_name);
+        if !log_file_path.exists() {
+            File::create(&log_file_path).expect("Failed to create logger file");
         }
         let mut file = OpenOptions::new()
             .append(true)
-            .open(file_dir_path.clone())
+            .open(&log_file_path)
             .expect("Failed to open logger file");
         let formatted_message = match self.log_type {
-            LogType::Information => format!("[INFO] at:{} => {}\n",formatted_date, self.message),
-            LogType::Error => format!("[ERROR] at:{} =>  {}\n",formatted_date, self.message),
-            LogType::Warning => format!("[WARNING] at:{} => {}\n",formatted_date, self.message),
+            LogType::Information => format!("[INFO] at:{} => {}\n", formatted_date, self.message),
+            LogType::Error => format!("[ERROR] at:{} =>  {}\n", formatted_date, self.message),
+            LogType::Warning => format!("[WARNING] at:{} => {}\n", formatted_date, self.message),
         };
         file.write_all(formatted_message.as_bytes())
             .expect("Failed to write to logger file");

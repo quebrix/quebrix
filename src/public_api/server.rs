@@ -1,17 +1,15 @@
-
-use actix_web::{
-    http::{header::HeaderMap},
-    middleware::Logger,
-    web, App, HttpRequest, HttpResponse, HttpServer,
+use crate::{
+    cache::Cache,
+    creds::cred_manager::{CredsManager, RoleManagement, User},
 };
-use std::str::FromStr;
-use std::fmt;
+use actix_web::{
+    http::header::HeaderMap, middleware::Logger, web, App, HttpRequest, HttpResponse, HttpServer,
+};
+use base64::decode;
 use serde::{Deserialize, Serialize};
-use tokio::runtime::TryCurrentError;
+use std::fmt;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use base64::decode;
-use crate::{cache::Cache, creds::cred_manager::{CredsManager, RoleManagement,User}};
 
 #[derive(Deserialize)]
 struct UserRequest {
@@ -58,25 +56,39 @@ pub async fn add_user(
     let headers: &HeaderMap = req.headers();
     let auth = headers.get("Authorization").unwrap().to_str().unwrap();
     let decoded_bytes = decode(auth.clone()).expect("Failed to decode Base64 string");
-    let decoded_credentials = std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
+    let decoded_credentials =
+        std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
     let creds_vec: Vec<&str> = decoded_credentials.split(":").collect();
     let username = creds_vec.get(0).unwrap();
-    let auth_result = creds.lock().unwrap().authenticate(username, creds_vec.get(1).unwrap());
-    let mut current_user:User;
-    if auth_result{
-       current_user = creds.lock().unwrap().get_user(username);
-    }
-    else{
+    let auth_result = creds
+        .lock()
+        .unwrap()
+        .authenticate(username, creds_vec.get(1).unwrap());
+    let mut current_user: User;
+    if auth_result {
+        current_user = creds.lock().unwrap().get_user(username);
+    } else {
         return HttpResponse::Ok().json(ApiResponse::fail("invalid pass or username"));
     }
 
     if !creds.lock().unwrap().is_admin(&current_user) {
-        return HttpResponse::Ok().json(ApiResponse::fail("Permission denied: Admin role required to add users"));
+        return HttpResponse::Ok().json(ApiResponse::fail(
+            "Permission denied: Admin role required to add users",
+        ));
     }
 
-    let UserRequest { username, password, role } = &*payload;
+    let UserRequest {
+        username,
+        password,
+        role,
+    } = &*payload;
 
-    match creds.lock().unwrap().add_user(username.clone(), password.clone(), role.clone().parse::<RoleManagement>().unwrap(), Option::Some((&current_user))) {
+    match creds.lock().unwrap().add_user(
+        username.clone(),
+        password.clone(),
+        role.clone().parse::<RoleManagement>().unwrap(),
+        Option::Some((&current_user)),
+    ) {
         Ok(_) => HttpResponse::Ok().json(ApiResponse::ok("User added successfully")),
         Err(err) => HttpResponse::InternalServerError().json(ApiResponse::fail(err.to_string())),
     }
@@ -86,7 +98,11 @@ pub async fn authenticate_user(
     creds: web::Data<Arc<Mutex<CredsManager>>>,
     payload: web::Json<UserRequest>,
 ) -> HttpResponse {
-    let UserRequest { username, password, role:_ } = &*payload;
+    let UserRequest {
+        username,
+        password,
+        role: _,
+    } = &*payload;
 
     if creds.lock().unwrap().authenticate(username, password) {
         HttpResponse::Ok().json(ApiResponse {
@@ -107,11 +123,17 @@ pub async fn set(
     payload: web::Json<SetRequest>,
     req: HttpRequest,
 ) -> HttpResponse {
-    let SetRequest { cluster, key, value, ttl } = &*payload;
+    let SetRequest {
+        cluster,
+        key,
+        value,
+        ttl,
+    } = &*payload;
     let headers: &HeaderMap = req.headers();
     let auth = headers.get("Authorization").unwrap().to_str().unwrap();
     let decoded_bytes = decode(auth.clone()).expect("Failed to decode Base64 string");
-    let decoded_credentials = std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
+    let decoded_credentials =
+        std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
     let creds_vec: Vec<&str> = decoded_credentials.split(":").collect();
     let username = creds_vec.get(0).unwrap();
     let password = creds_vec.get(1).unwrap();
@@ -122,8 +144,14 @@ pub async fn set(
 
     let set_value = value.as_bytes();
     let ttl_duration = ttl.map(Duration::from_millis);
-    let set_result = cache.lock().unwrap().set(cluster.clone(), key.clone(), Vec::from(set_value), ttl_duration,false);
-    
+    let set_result = cache.lock().unwrap().set(
+        cluster.clone(),
+        key.clone(),
+        Vec::from(set_value),
+        ttl_duration,
+        false,
+    );
+
     if set_result {
         HttpResponse::Ok().json(ApiResponse::ok("Set operation successful"))
     } else {
@@ -141,7 +169,8 @@ pub async fn get(
     let headers: &HeaderMap = req.headers();
     let auth = headers.get("Authorization").unwrap().to_str().unwrap();
     let decoded_bytes = decode(auth.clone()).expect("Failed to decode Base64 string");
-    let decoded_credentials = std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
+    let decoded_credentials =
+        std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
     let creds_vec: Vec<&str> = decoded_credentials.split(":").collect();
     let username = creds_vec.get(0).unwrap();
     let password = creds_vec.get(1).unwrap();
@@ -164,7 +193,8 @@ pub async fn delete(
     let headers: &HeaderMap = req.headers();
     let auth = headers.get("Authorization").unwrap().to_str().unwrap();
     let decoded_bytes = decode(auth.clone()).expect("Failed to decode Base64 string");
-    let decoded_credentials = std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
+    let decoded_credentials =
+        std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
     let creds_vec: Vec<&str> = decoded_credentials.split(":").collect();
     let username = creds_vec.get(0).unwrap();
     let password = creds_vec.get(1).unwrap();
@@ -172,7 +202,7 @@ pub async fn delete(
     if !creds.lock().unwrap().authenticate(username, password) {
         return HttpResponse::Unauthorized().json(ApiResponse::fail("Authentication failed"));
     }
-    cache.lock().unwrap().delete(&cluster, &key,false);
+    cache.lock().unwrap().delete(&cluster, &key, false);
     HttpResponse::Ok().json(ApiResponse::ok("Delete operation successful"))
 }
 
@@ -185,7 +215,8 @@ pub async fn clear_cluster(
     let headers: &HeaderMap = req.headers();
     let auth = headers.get("Authorization").unwrap().to_str().unwrap();
     let decoded_bytes = decode(auth.clone()).expect("Failed to decode Base64 string");
-    let decoded_credentials = std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
+    let decoded_credentials =
+        std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
     let creds_vec: Vec<&str> = decoded_credentials.split(":").collect();
     let username = creds_vec.get(0).unwrap();
     let password = creds_vec.get(1).unwrap();
@@ -193,7 +224,7 @@ pub async fn clear_cluster(
     if !creds.lock().unwrap().authenticate(username, password) {
         return HttpResponse::Unauthorized().json(ApiResponse::fail("Authentication failed"));
     }
-    cache.lock().unwrap().clear_cluster(&cluster,false);
+    cache.lock().unwrap().clear_cluster(&cluster, false);
     HttpResponse::Ok().json(ApiResponse::ok("Clear cluster operation successful"))
 }
 
@@ -207,7 +238,8 @@ pub async fn get_keys_of_cluster(
     let headers: &HeaderMap = req.headers();
     let auth = headers.get("Authorization").unwrap().to_str().unwrap();
     let decoded_bytes = decode(auth.clone()).expect("Failed to decode Base64 string");
-    let decoded_credentials = std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
+    let decoded_credentials =
+        std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
     let creds_vec: Vec<&str> = decoded_credentials.split(":").collect();
     let username = creds_vec.get(0).unwrap();
     let password = creds_vec.get(1).unwrap();
@@ -228,7 +260,8 @@ pub async fn get_all_clusters(
     let headers: &HeaderMap = req.headers();
     let auth = headers.get("Authorization").unwrap().to_str().unwrap();
     let decoded_bytes = decode(auth.clone()).expect("Failed to decode Base64 string");
-    let decoded_credentials = std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
+    let decoded_credentials =
+        std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
     let creds_vec: Vec<&str> = decoded_credentials.split(":").collect();
     let username = creds_vec.get(0).unwrap();
     let password = creds_vec.get(1).unwrap();
@@ -257,7 +290,8 @@ pub async fn set_cluster(
     let headers: &HeaderMap = req.headers();
     let auth = headers.get("Authorization").unwrap().to_str().unwrap();
     let decoded_bytes = decode(auth.clone()).expect("Failed to decode Base64 string");
-    let decoded_credentials = std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
+    let decoded_credentials =
+        std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
     let creds_vec: Vec<&str> = decoded_credentials.split(":").collect();
     let username = creds_vec.get(0).unwrap();
     let password = creds_vec.get(1).unwrap();
@@ -284,15 +318,20 @@ pub async fn run_server(
             .route("/api/get/{cluster}/{key}", web::get().to(get))
             .route("/api/ping", web::get().to(check_connection))
             .route("/api/delete/{cluster}/{key}", web::delete().to(delete))
-            .route("/api/get_keys/{cluster}", web::get().to(get_keys_of_cluster))
-            .route("/api/clear_cluster/{cluster}", web::delete().to(clear_cluster))
+            .route(
+                "/api/get_keys/{cluster}",
+                web::get().to(get_keys_of_cluster),
+            )
+            .route(
+                "/api/clear_cluster/{cluster}",
+                web::delete().to(clear_cluster),
+            )
             .route("/api/get_clusters", web::get().to(get_all_clusters))
             .route("/api/set_cluster/{cluster}", web::post().to(set_cluster))
-            .route("/api/add_user", web::post().to(add_user))  
-            .route("/api/login", web::post().to(authenticate_user))  
+            .route("/api/add_user", web::post().to(add_user))
+            .route("/api/login", web::post().to(authenticate_user))
     })
     .bind(format!("{}:{}", ip, port_number))? // Bind to the provided IP and port
     .run()
     .await
 }
-
