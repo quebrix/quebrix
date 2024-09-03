@@ -1,6 +1,7 @@
 use std::collections::{self, HashMap};
-use std::env;
+use std::{clone, env};
 use chrono::prelude::*;
+use serde::Serialize;
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader};
 use std::ptr::null;
@@ -10,8 +11,23 @@ use rand::seq::SliceRandom;
 use crate::logger::logger_manager::Logger;
 use crate::creds::cred_manager::CredsManager;
 use crate::persistent::persistent_Manager;
+use sysinfo::{System,Process};
 
 use crate::memory_handling;
+
+const SAMPLE_DURATION: Duration = Duration::from_secs(1);
+const TOTAL_SAMPLES: usize = 60;
+
+
+#[derive(Clone,Serialize)]
+pub struct Stats {
+    pub cpu_usage: f32,          // CPU usage percentage for the application
+    pub ram_usage: u64,          // Physical memory usage (in KB)
+    pub virtual_memory_usage: u64, // Virtual memory usage (in KB)
+    pub total_ram: u64,          // Total physical memory available on the system (in KB)
+    pub total_virtual_memory: u64, // Total virtual memory available on the system (in KB)
+    pub uptime: u64,             // Uptime of the application (in seconds)
+}
 
 #[derive(Clone)]
 pub struct Cache {
@@ -95,7 +111,6 @@ impl Cache {
         if parts.is_empty() {
         return;
         }
-        //println!("{:?}",parts[3].as_bytes().to_vec());
         match parts[0] {
             "SET" => {
                 let cleaned_input = command.trim_start_matches('[')
@@ -189,7 +204,39 @@ impl Cache {
         }
     }
 
+    pub fn value_size(&self,cluster:String) -> usize{
+        let store = self.store.lock().unwrap();
+        let cluster = store.get(&cluster).unwrap();
+        std::mem::size_of_val(cluster)
+    }
 
+   
+    pub fn get_stats(&self) -> Stats {
+        let mut system = System::new_all();
+        system.refresh_all();
+
+        let pid = sysinfo::get_current_pid().expect("Failed to get current PID");
+        let process = system.process(pid).expect("Failed to get process");
+
+        let cpu_usage = process.cpu_usage();
+        let ram_usage = process.memory(); // Physical memory usage (in KB)
+        let virtual_memory_usage = process.virtual_memory(); // Virtual memory usage (in KB)
+        //let num_threads = process.threads().len(); // Number of threads used by the application
+        let uptime = process.start_time(); // Start time of the application (in seconds since boot)
+
+        let total_ram = system.total_memory(); // Total physical memory available on the system (in KB)
+        let total_virtual_memory = system.total_swap(); // Total virtual memory available on the system (in KB)
+
+        Stats {
+            cpu_usage,
+            ram_usage,
+            virtual_memory_usage,
+            total_ram,
+            total_virtual_memory,
+            //num_threads,
+            uptime,
+        }
+    }
 
     pub fn set_cluster(&self, cluster: String) {
         let mut store = self.store.lock().unwrap();
