@@ -18,7 +18,7 @@ pub struct Settings {
 
 impl Settings {
     pub fn new() -> Self {
-        let current_dir = &KNOWN_DIRECTORIES.lock().unwrap().app_root_directory;
+        let current_dir = &KNOWN_DIRECTORIES.app_root_directory;
 
         let config_path = PathBuf::from(current_dir)
             .join("config")

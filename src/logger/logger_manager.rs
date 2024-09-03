@@ -62,7 +62,8 @@ impl<'a> Logger<'a> {
     }
 
     pub fn write_log_to_file(&self) {
-        let log_dir = &KNOWN_DIRECTORIES.lock().unwrap().log_directory;
+        let log_dir = &KNOWN_DIRECTORIES.log_directory;
+
         let now: DateTime<Local> = Local::now();
         let formatted_date = now.format("%d-%m-%Y %H:%M:%S %A").to_string();
         let log_file_name = format!("logger_{}.txt", now.format("%d-%m-%Y"));

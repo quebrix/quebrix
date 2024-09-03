@@ -197,7 +197,7 @@ impl CredsManager {
             self.users = HashMap::new();
         }
 
-        let kn_dir = &KNOWN_DIRECTORIES.lock().unwrap();
+        let kn_dir = &KNOWN_DIRECTORIES;
         let open_file_result = {
             OpenOptions::new()
                 .read(true)
@@ -244,7 +244,7 @@ impl CredsManager {
     }
 
     fn create_admin(&mut self) {
-        let kn_dir = &KNOWN_DIRECTORIES.lock().unwrap();
+        let kn_dir = &KNOWN_DIRECTORIES;
 
         let users_file = PathBuf::from(&kn_dir.creds_directory).join("users.txt");
 
@@ -262,7 +262,7 @@ impl CredsManager {
 
     // Write a new user to the file
     fn write_user_to_file(&self, username: &str) -> io::Result<()> {
-        let kn_dir = &KNOWN_DIRECTORIES.lock().unwrap();
+        let kn_dir = &KNOWN_DIRECTORIES;
 
         let users_file = PathBuf::from(&kn_dir.creds_directory).join("users.txt");
 

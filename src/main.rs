@@ -60,7 +60,7 @@ fn main() {
         )));
         let cache_clone = Arc::clone(&cache);
         let cred_clone = Arc::clone(&cred_manager);
-        let cache_log = Logger::log_info("cahce successfully instaled ...");
+        let cache_log = Logger::log_info("cache successfully installed ...");
         cache_log.write_log_to_file();
         std::thread::spawn(move || loop {
             retention_policy_job::run_retention_policy(settings.retention_policy);

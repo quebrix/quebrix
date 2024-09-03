@@ -53,7 +53,7 @@ impl Cache {
 
     pub fn initialize_from_commands(&mut self) {
         let now: DateTime<Local> = Local::now();
-        let kn_dirs = &KNOWN_DIRECTORIES.lock().unwrap();
+        let kn_dirs = &KNOWN_DIRECTORIES;
 
         let persistent_file_name = format!(
             "{}/persistent_{}.rus",

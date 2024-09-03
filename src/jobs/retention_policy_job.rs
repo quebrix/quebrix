@@ -7,7 +7,7 @@ use std::{
 };
 
 pub fn run_retention_policy(policy_day: i64) {
-    let kn_dir = &KNOWN_DIRECTORIES.lock().unwrap();
+    let kn_dir = &KNOWN_DIRECTORIES;
 
     let persistent_dir = &kn_dir.persistent_directory;
 

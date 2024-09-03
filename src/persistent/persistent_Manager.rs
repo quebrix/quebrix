@@ -3,7 +3,7 @@ use chrono::prelude::*;
 use std::{env, fs::OpenOptions, io::Write, path::PathBuf};
 
 pub fn write_to_persistent_file(command: &String) -> std::io::Result<()> {
-    let kn_dir = &KNOWN_DIRECTORIES.lock().unwrap();
+    let kn_dir = &KNOWN_DIRECTORIES;
 
     let now: DateTime<Local> = Local::now();
     let persistent_file_name = format!("persistent_{}.rus", now.format("%d-%m-%Y"));
