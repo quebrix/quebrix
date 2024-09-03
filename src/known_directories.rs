@@ -1,4 +1,3 @@
-use crate::Logger;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 pub static KNOWN_DIRECTORIES: LazyLock<KnownDirectories> =
@@ -15,7 +14,6 @@ pub struct KnownDirectories {
 impl KnownDirectories {
     pub fn create_all_known_directories() -> KnownDirectories {
         // !!!Important!!!: do not use Logger in this scope, using Logger in this scoped will create deadlock
-
         let app_root_directory = KnownDirectories::get_app_root();
         let log_directory = PathBuf::from(&app_root_directory).join("logs");
         let data_directory = PathBuf::from(&app_root_directory).join("data");
@@ -34,8 +32,7 @@ impl KnownDirectories {
                     "{:?} directory is not exist create directory ...",
                     &directory
                 );
-                let set_log = Logger::log_warn_data(&message);
-                set_log.write_log_to_file();
+
                 println!(
                     "{:?} directory is not exist create directory ...",
                     &directory
@@ -44,13 +41,8 @@ impl KnownDirectories {
                 std::fs::create_dir_all(directory)
                     .expect(format!("Failed to create {:?} directory", &directory).as_str());
 
-                let created_message = format!("{:?} directory has created ", &directory);
-                let create_set_log = Logger::log_warn_data(&created_message);
-                set_log.write_log_to_file();
                 println!("{:?} directory has created", &directory);
             } else {
-                let exist_message = format!("{:?} directory already exist", &directory);
-                let exist_log = Logger::log_info_data(&exist_message);
                 println!("{:?} directory already exist", &directory);
             }
         });
