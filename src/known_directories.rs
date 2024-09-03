@@ -1,3 +1,4 @@
+use crate::Logger;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 pub static KNOWN_DIRECTORIES: LazyLock<KnownDirectories> =
@@ -29,6 +30,12 @@ impl KnownDirectories {
         ];
         known_directory_vec.iter().for_each(|&directory| {
             if !directory.exists() {
+                let message = format!(
+                    "{:?} directory is not exist create directory ...",
+                    &directory
+                );
+                let set_log = Logger::log_warn_data(&message);
+                set_log.write_log_to_file();
                 println!(
                     "{:?} directory is not exist create directory ...",
                     &directory
@@ -37,8 +44,13 @@ impl KnownDirectories {
                 std::fs::create_dir_all(directory)
                     .expect(format!("Failed to create {:?} directory", &directory).as_str());
 
-                println!("{:?} directory created", &directory)
+                let created_message = format!("{:?} directory has created ", &directory);
+                let create_set_log = Logger::log_warn_data(&created_message);
+                set_log.write_log_to_file();
+                println!("{:?} directory has created", &directory);
             } else {
+                let exist_message = format!("{:?} directory already exist", &directory);
+                let exist_log = Logger::log_info_data(&exist_message);
                 println!("{:?} directory already exist", &directory);
             }
         });

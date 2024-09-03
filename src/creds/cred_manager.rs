@@ -180,12 +180,7 @@ impl CredsManager {
     }
 
     fn load_users_from_file(&mut self) {
-        let _ = self.add_user(
-            "admin".to_string(),
-            "123456".to_string(),
-            RoleManagement::Admin,
-            None,
-        );
+        let _ = self.create_admin();
         if self.enable_log == true {
             let message = "default user added";
             let set_log = Logger::log_info(message);
