@@ -22,7 +22,7 @@ on:
 
 jobs:
   cleanup:
-    uses: quebrix/quebrix/.github/workflows/scheduled-action-cleanup-base.yml@main
+    uses: quebrix/quebrix/.github/workflows/scheduled-action-cleanup-base.yaml@main
     with:
       repository_owners: ${{ inputs.repository_owners }}
 
