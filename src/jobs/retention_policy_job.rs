@@ -13,7 +13,7 @@ pub fn run_retention_policy(policy_day: i64) {
 
     let today = Local::now().date_naive();
     let past_date = today - chrono::Duration::days(policy_day);
-    let persistent_file_name = format!("persistent_{}.rus", past_date.format("%d-%m-%Y"));
+    let persistent_file_name = format!("persistent_{}.qbx", past_date.format("%d-%m-%Y"));
     let persistent_file_path = PathBuf::from(persistent_dir).join(&persistent_file_name);
     if persistent_file_path.exists() {
         fs::remove_file(&persistent_file_path).expect("can not delete persistent file");

@@ -56,7 +56,7 @@ impl Cache {
         let kn_dirs = &KNOWN_DIRECTORIES;
 
         let persistent_file_name = format!(
-            "{}/persistent_{}.rus",
+            "{}/persistent_{}.qbx",
             &kn_dirs.persistent_directory.display(),
             now.format("%d-%m-%Y")
         );

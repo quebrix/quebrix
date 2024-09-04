@@ -6,7 +6,7 @@ pub fn write_to_persistent_file(command: &String) -> std::io::Result<()> {
     let kn_dir = &KNOWN_DIRECTORIES;
 
     let now: DateTime<Local> = Local::now();
-    let persistent_file_name = format!("persistent_{}.rus", now.format("%d-%m-%Y"));
+    let persistent_file_name = format!("persistent_{}.qbx", now.format("%d-%m-%Y"));
     let persistent_file_path =
         PathBuf::from(&kn_dir.persistent_directory).join(&persistent_file_name);
 
