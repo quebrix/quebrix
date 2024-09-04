@@ -2,10 +2,6 @@ name: Russel Docker images for Linux
 
 on:
   workflow_dispatch: # allow manual run
-  workflow_run:
-    workflows: ['Rust Build']
-    types: [completed]
-    branches: [main]
   push:
     tags: 'v*'
 
