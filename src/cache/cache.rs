@@ -89,23 +89,17 @@ impl Cache {
         &mut self,
         cluster: String,
         key: String,
-        value: Option<Vec<u8>>,
+        value: Option<i32>,
         ignore_persistent: bool,
     ) -> bool {
-        let increment_value: i32 = value
-            .as_ref() // Get reference to Option<Vec<u8>>
-            .and_then(|v| {
-                // If Some, try to convert it
-                if v.len() == 4 {
-                    // Ensure the Vec<u8> has 4 bytes (size of i32)
-                    let array: [u8; 4] = v.as_slice().try_into().ok()?; // Convert Vec<u8> to [u8; 4]
-                    Some(i32::from_le_bytes(array)) // Convert [u8; 4] to i32
-                } else {
-                    None // If the Vec<u8> isn't the right size, return None
-                }
-            })
-            .unwrap_or(1);
-        let memory_usage = std::mem::size_of_val(&increment_value);
+        let mut increment_value: Option<Vec<u8>> = None;
+        if value.is_some() {
+            let main_value = Option::Some(value.as_ref().unwrap().to_le_bytes().to_vec());
+            increment_value = main_value;
+        } else {
+            increment_value = Option::Some(i32_to_vec(1));
+        }
+        let memory_usage = std::mem::size_of_val(&increment_value.clone().unwrap());
 
         // Memory check and eviction
         {
@@ -140,20 +134,15 @@ impl Cache {
 
         let current_value = cluster_store
             .entry(key.clone())
-            .and_modify(|(existing_value, _, _, cache_type)| {
+            .and_modify(|(existing_value, _, _, _)| {
                 // Convert Vec<u8> to [u8; 4] and then to i32
                 let mut current_i32 = i32::from_le_bytes(existing_value[..4].try_into().unwrap());
-                current_i32 += increment_value;
+                current_i32 += vec_to_i32(increment_value.clone().unwrap()).unwrap();
 
                 // Update the value as Vec<u8>
                 *existing_value = current_i32.to_le_bytes().to_vec();
             })
-            .or_insert((
-                increment_value.to_le_bytes().to_vec(),
-                None,
-                None,
-                CacheType::Num,
-            ))
+            .or_insert((increment_value.clone().unwrap(), None, None, CacheType::Num))
             .0
             .clone();
 
@@ -182,36 +171,29 @@ impl Cache {
         &mut self,
         cluster: String,
         key: String,
-        value: Option<Vec<u8>>,
+        value: Option<i32>,
         ignore_persistent: bool,
     ) -> bool {
-        let deccrement_value: i32 = value
-            .as_ref()
-            .and_then(|v| {
-                // If Some, try to convert it
-                if v.len() == 4 {
-                    // Ensure the Vec<u8> has 4 bytes (size of i32)
-                    let array: [u8; 4] = v.as_slice().try_into().ok()?; // Convert Vec<u8> to [u8; 4]
-                    Some(i32::from_le_bytes(array)) // Convert [u8; 4] to i32
-                } else {
-                    None
-                }
-            })
-            .unwrap_or(1);
+        let mut deccrement_value: Option<Vec<u8>> = None;
+        if value.is_some() {
+            let main_value = Option::Some(value.as_ref().unwrap().to_le_bytes().to_vec());
+            deccrement_value = main_value;
+        } else {
+            deccrement_value = Option::Some(i32_to_vec(1));
+        }
         let memory_usage = std::mem::size_of_val(&deccrement_value);
         let get_cache = self.get(&cluster, &key);
         if get_cache.value.is_some() {
             // decrement logic
             let mut store = self.store.lock().unwrap();
             let cluster_store = store.entry(cluster.clone()).or_insert_with(HashMap::new);
-
             let current_value = cluster_store
                 .entry(key.clone())
                 .and_modify(|(existing_value, _, _, cache_type)| {
                     // Convert Vec<u8> to [u8; 4] and then to i32
                     let mut current_i32 =
                         i32::from_le_bytes(existing_value[..4].try_into().unwrap());
-                    current_i32 -= deccrement_value;
+                    current_i32 -= vec_to_i32(deccrement_value.clone().unwrap()).unwrap();
                     if current_i32 == 0 || current_i32 < 0 {
                         current_i32 = 0;
                     }
@@ -219,7 +201,7 @@ impl Cache {
                     *existing_value = current_i32.to_le_bytes().to_vec();
                 })
                 .or_insert((
-                    deccrement_value.to_le_bytes().to_vec(),
+                    deccrement_value.clone().unwrap(),
                     None,
                     None,
                     CacheType::Num,
@@ -348,9 +330,10 @@ impl Cache {
                     let vec_u8: Vec<u8> = str_numbers
                         .map(|s| s.parse().expect("Invalid byte"))
                         .collect();
+                    let main_value = vec_to_i32(vec_u8);
                     let cluster = splited_command[1].to_string();
                     let key = splited_command[2].to_string();
-                    self.add_incr(cluster, key, Option::Some(vec_u8), true);
+                    self.add_incr(cluster, key, main_value, true);
                 }
             }
             "DECR" => {
@@ -376,9 +359,10 @@ impl Cache {
                     let vec_u8: Vec<u8> = str_numbers
                         .map(|s| s.parse().expect("Invalid byte"))
                         .collect();
+                    let main_value = vec_to_i32(vec_u8);
                     let cluster = splited_command[1].to_string();
                     let key = splited_command[2].to_string();
-                    self.decr(cluster, key, Option::Some(vec_u8), true);
+                    self.decr(cluster, key, main_value, true);
                 }
             }
             "DEL" => {
@@ -785,4 +769,16 @@ impl EvictionStrategy {
             }
         }
     }
+}
+//helpers
+fn vec_to_i32(vec: Vec<u8>) -> Option<i32> {
+    if vec.len() == 4 {
+        let byte_array: [u8; 4] = vec.try_into().ok()?;
+        Some(i32::from_le_bytes(byte_array))
+    } else {
+        None
+    }
+}
+fn i32_to_vec(value: i32) -> Vec<u8> {
+    value.to_le_bytes().to_vec()
 }

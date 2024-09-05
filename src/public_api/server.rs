@@ -190,16 +190,11 @@ pub async fn incr(
     if !creds.lock().unwrap().authenticate(username, password) {
         return HttpResponse::Unauthorized().json(ApiResponse::fail("Authentication failed"));
     }
-    let mut set_value: Option<Vec<u8>> = None;
-    if value.is_some() {
-        let main_value = Option::Some(value.as_ref().unwrap().to_le_bytes().to_vec());
-        set_value = main_value;
-    }
-
-    let set_result = cache
-        .lock()
-        .unwrap()
-        .add_incr(cluster.clone(), key.clone(), set_value, false);
+    let set_result =
+        cache
+            .lock()
+            .unwrap()
+            .add_incr(cluster.clone(), key.clone(), value.clone(), false);
 
     if set_result {
         HttpResponse::Ok().json(ApiResponse::ok("Set INCR successful"))
@@ -232,17 +227,11 @@ pub async fn decr(
     if !creds.lock().unwrap().authenticate(username, password) {
         return HttpResponse::Unauthorized().json(ApiResponse::fail("Authentication failed"));
     }
-    let mut set_value: Option<Vec<u8>> = None;
-    if value.is_some() {
-        let main_value = Option::Some(value.as_ref().unwrap().to_le_bytes().to_vec());
-        set_value = main_value;
-    }
 
     let set_result = cache
         .lock()
         .unwrap()
-        .decr(cluster.clone(), key.clone(), set_value, false);
-
+        .decr(cluster.clone(), key.clone(), value.clone(), false);
     if set_result {
         HttpResponse::Ok().json(ApiResponse::ok("Set DECR successful"))
     } else {
