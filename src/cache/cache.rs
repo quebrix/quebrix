@@ -17,19 +17,19 @@ use std::time::{Duration, Instant};
 #[derive(Clone, Serialize)]
 pub enum CacheType {
     Str = 1,
-    Num = 2,
+    Int = 2,
 }
 
 impl CacheType {
     fn as_i32(&self) -> &i32 {
         match self {
-            CacheType::Num => &1,
+            CacheType::Int => &1,
             CacheType::Str => &2,
         }
     }
     fn as_str(&self) -> &str {
         match self {
-            CacheType::Num => "Number",
+            CacheType::Int => "Intiger",
             CacheType::Str => "string",
         }
     }
@@ -142,7 +142,7 @@ impl Cache {
                 // Update the value as Vec<u8>
                 *existing_value = current_i32.to_le_bytes().to_vec();
             })
-            .or_insert((increment_value.clone().unwrap(), None, None, CacheType::Num))
+            .or_insert((increment_value.clone().unwrap(), None, None, CacheType::Int))
             .0
             .clone();
 
@@ -204,7 +204,7 @@ impl Cache {
                     deccrement_value.clone().unwrap(),
                     None,
                     None,
-                    CacheType::Num,
+                    CacheType::Int,
                 ))
                 .0
                 .clone();
@@ -482,9 +482,9 @@ impl Cache {
             value_type = Option::Some(CacheType::Str);
         }
         if ((cahe_type.clone().is_some())
-            && cahe_type.as_ref().unwrap().as_i32() == CacheType::Num.as_i32())
+            && cahe_type.as_ref().unwrap().as_i32() == CacheType::Int.as_i32())
         {
-            value_type = Option::Some(CacheType::Num);
+            value_type = Option::Some(CacheType::Int);
         }
         if self.enable_log == true && value.is_some() {
             let cache_message = format!("value get");
