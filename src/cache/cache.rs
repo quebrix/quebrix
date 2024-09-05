@@ -325,6 +325,62 @@ impl Cache {
                     self.set(cluster, key, vec_u8, None, true);
                 }
             }
+            "INCR" => {
+                let cleaned_input = command
+                    .trim_start_matches('[')
+                    .trim_end_matches(']')
+                    .trim_start_matches('"')
+                    .trim_end_matches('"');
+                let (before_bracket, after_bracket) =
+                    cleaned_input.split_once('[').unwrap_or((cleaned_input, ""));
+                let (inside_bracket, after_closing_bracket) =
+                    after_bracket.split_once(']').unwrap_or((after_bracket, ""));
+                let inside_bracket_cleaned = inside_bracket.replace(" ", "");
+                let set_command = format!(
+                    "{}[{}]{}",
+                    before_bracket, inside_bracket_cleaned, after_closing_bracket
+                );
+
+                let splited_command: Vec<&str> = set_command.split_whitespace().collect();
+                if splited_command.len() == 4 {
+                    let trimmed_input = splited_command[3].trim_matches(|c| c == '[' || c == ']');
+                    let str_numbers = trimmed_input.split(",");
+                    let vec_u8: Vec<u8> = str_numbers
+                        .map(|s| s.parse().expect("Invalid byte"))
+                        .collect();
+                    let cluster = splited_command[1].to_string();
+                    let key = splited_command[2].to_string();
+                    self.add_incr(cluster, key, Option::Some(vec_u8), true);
+                }
+            }
+            "DECR" => {
+                let cleaned_input = command
+                    .trim_start_matches('[')
+                    .trim_end_matches(']')
+                    .trim_start_matches('"')
+                    .trim_end_matches('"');
+                let (before_bracket, after_bracket) =
+                    cleaned_input.split_once('[').unwrap_or((cleaned_input, ""));
+                let (inside_bracket, after_closing_bracket) =
+                    after_bracket.split_once(']').unwrap_or((after_bracket, ""));
+                let inside_bracket_cleaned = inside_bracket.replace(" ", "");
+                let set_command = format!(
+                    "{}[{}]{}",
+                    before_bracket, inside_bracket_cleaned, after_closing_bracket
+                );
+
+                let splited_command: Vec<&str> = set_command.split_whitespace().collect();
+                if splited_command.len() == 4 {
+                    let trimmed_input = splited_command[3].trim_matches(|c| c == '[' || c == ']');
+                    let str_numbers = trimmed_input.split(",");
+                    let vec_u8: Vec<u8> = str_numbers
+                        .map(|s| s.parse().expect("Invalid byte"))
+                        .collect();
+                    let cluster = splited_command[1].to_string();
+                    let key = splited_command[2].to_string();
+                    self.decr(cluster, key, Option::Some(vec_u8), true);
+                }
+            }
             "DEL" => {
                 if parts.len() == 3 {
                     let cluster = parts[1].to_string();
