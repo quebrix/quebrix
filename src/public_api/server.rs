@@ -1,5 +1,5 @@
 use crate::{
-    cache::Cache,
+    cache::{cache::ResultValue, Cache},
     creds::cred_manager::{CredsManager, RoleManagement, User},
 };
 use actix_web::{
@@ -46,6 +46,13 @@ struct SetRequest {
     key: String,
     value: String,
     ttl: Option<u64>, // Duration in milliseconds
+}
+
+#[derive(Deserialize)]
+struct SetNumbericRequest {
+    cluster: String,
+    key: String,
+    value: Option<i32>, //remember is i32
 }
 
 pub async fn add_user(
@@ -159,6 +166,79 @@ pub async fn set(
     }
 }
 
+pub async fn incr(
+    cache: web::Data<Arc<Mutex<Cache>>>,
+    creds: web::Data<Arc<Mutex<CredsManager>>>,
+    payload: web::Json<SetNumbericRequest>,
+    req: HttpRequest,
+) -> HttpResponse {
+    let SetNumbericRequest {
+        cluster,
+        key,
+        value,
+    } = &*payload;
+
+    let headers: &HeaderMap = req.headers();
+    let auth = headers.get("Authorization").unwrap().to_str().unwrap();
+    let decoded_bytes = decode(auth.clone()).expect("Failed to decode Base64 string");
+    let decoded_credentials =
+        std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
+    let creds_vec: Vec<&str> = decoded_credentials.split(":").collect();
+    let username = creds_vec.get(0).unwrap();
+    let password = creds_vec.get(1).unwrap();
+
+    if !creds.lock().unwrap().authenticate(username, password) {
+        return HttpResponse::Unauthorized().json(ApiResponse::fail("Authentication failed"));
+    }
+    let set_result =
+        cache
+            .lock()
+            .unwrap()
+            .add_incr(cluster.clone(), key.clone(), value.clone(), false);
+
+    if set_result {
+        HttpResponse::Ok().json(ApiResponse::ok("Set INCR successful"))
+    } else {
+        HttpResponse::Ok().json(ApiResponse::fail("Set INCR failed"))
+    }
+}
+
+pub async fn decr(
+    cache: web::Data<Arc<Mutex<Cache>>>,
+    creds: web::Data<Arc<Mutex<CredsManager>>>,
+    payload: web::Json<SetNumbericRequest>,
+    req: HttpRequest,
+) -> HttpResponse {
+    let SetNumbericRequest {
+        cluster,
+        key,
+        value,
+    } = &*payload;
+
+    let headers: &HeaderMap = req.headers();
+    let auth = headers.get("Authorization").unwrap().to_str().unwrap();
+    let decoded_bytes = decode(auth.clone()).expect("Failed to decode Base64 string");
+    let decoded_credentials =
+        std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
+    let creds_vec: Vec<&str> = decoded_credentials.split(":").collect();
+    let username = creds_vec.get(0).unwrap();
+    let password = creds_vec.get(1).unwrap();
+
+    if !creds.lock().unwrap().authenticate(username, password) {
+        return HttpResponse::Unauthorized().json(ApiResponse::fail("Authentication failed"));
+    }
+
+    let set_result = cache
+        .lock()
+        .unwrap()
+        .decr(cluster.clone(), key.clone(), value.clone(), false);
+    if set_result {
+        HttpResponse::Ok().json(ApiResponse::ok("Set DECR successful"))
+    } else {
+        HttpResponse::Ok().json(ApiResponse::fail("Set DECR failed key not found"))
+    }
+}
+
 pub async fn get(
     cache: web::Data<Arc<Mutex<Cache>>>,
     creds: web::Data<Arc<Mutex<CredsManager>>>,
@@ -177,8 +257,12 @@ pub async fn get(
     if !creds.lock().unwrap().authenticate(username, password) {
         return HttpResponse::Unauthorized().json(ApiResponse::fail("Authentication failed"));
     }
-    match cache.lock().unwrap().get(&cluster, &key) {
-        Some(value) => HttpResponse::Ok().json(ApiResponse::ok(value)),
+    let result = cache.lock().unwrap().get(&cluster, &key);
+    match result.value {
+        Some(ref value) => HttpResponse::Ok().json(ApiResponse::ok(ResultValue {
+            value: result.value,
+            value_type: result.value_type,
+        })),
         None => HttpResponse::NotFound().json(ApiResponse::fail("Key not found")),
     }
 }
@@ -315,6 +399,8 @@ pub async fn run_server(
             .app_data(web::Data::new(cache.clone()))
             .app_data(web::Data::new(creds.clone()))
             .route("/api/set", web::post().to(set))
+            .route("/api/incr", web::post().to(incr))
+            .route("/api/decr", web::post().to(decr))
             .route("/api/get/{cluster}/{key}", web::get().to(get))
             .route("/api/ping", web::get().to(check_connection))
             .route("/api/delete/{cluster}/{key}", web::delete().to(delete))
