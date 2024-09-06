@@ -23,7 +23,7 @@ use std::fmt;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use super::get_del::get_del;
+use super::{get_del::get_del, get_range::get_range};
 
 #[derive(Deserialize)]
 pub struct UserRequest {
@@ -84,6 +84,10 @@ pub async fn run_server(
             .route("/api/incr", web::post().to(incr))
             .route("/api/decr", web::post().to(decr))
             .route("/api/get/{cluster}/{key}", web::get().to(get))
+            .route(
+                "/api/get_range/{cluster}/{key}/{start}/{end}",
+                web::get().to(get_range),
+            )
             .route("/api/get_del/{cluster}/{key}", web::get().to(get_del))
             .route("/api/ping", web::get().to(check_connection))
             .route("/api/delete/{cluster}/{key}", web::delete().to(delete))
