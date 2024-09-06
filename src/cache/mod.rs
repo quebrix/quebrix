@@ -7,6 +7,7 @@ pub mod delete;
 pub mod get;
 pub mod get_all_clusters;
 pub mod get_cluster_keys;
+pub mod get_del;
 pub mod incr;
 pub mod set;
 pub mod set_cluster;
