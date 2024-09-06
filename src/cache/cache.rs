@@ -1,9 +1,12 @@
 use crate::creds::cred_manager::CredsManager;
 use crate::known_directories::KNOWN_DIRECTORIES;
 use crate::logger::logger_manager::Logger;
+use crate::memory_handling;
 use crate::persistent::persistent_Manager;
 use chrono::prelude::*;
+use core::str;
 use rand::seq::SliceRandom;
+use serde::Serialize;
 use std::collections::HashMap;
 use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader};
@@ -11,13 +14,44 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use crate::memory_handling;
+#[derive(Clone, Serialize)]
+pub enum CacheType {
+    Str = 1,
+    Int = 2,
+}
+
+impl CacheType {
+    fn as_i32(&self) -> &i32 {
+        match self {
+            CacheType::Int => &1,
+            CacheType::Str => &2,
+        }
+    }
+    fn as_str(&self) -> &str {
+        match self {
+            CacheType::Int => "Intiger",
+            CacheType::Str => "string",
+        }
+    }
+}
+
+#[derive(Clone, Serialize)]
+pub struct ResultValue {
+    pub value: Option<Vec<u8>>,
+    pub value_type: Option<CacheType>,
+}
 
 #[derive(Clone)]
 pub struct Cache {
     evict_type: i32,
-    store:
-        Arc<Mutex<HashMap<String, HashMap<String, (Vec<u8>, Option<Instant>, Option<Duration>)>>>>,
+    store: Arc<
+        Mutex<
+            HashMap<
+                String,
+                HashMap<String, (Vec<u8>, Option<Instant>, Option<Duration>, CacheType)>,
+            >,
+        >,
+    >,
     port: u16,
     memory_handler: Arc<Mutex<memory_handling::memory_handling::MemoryHandler>>,
     enable_log: bool,
@@ -49,6 +83,157 @@ impl Cache {
         }
 
         cache
+    }
+
+    pub fn add_incr(
+        &mut self,
+        cluster: String,
+        key: String,
+        value: Option<i32>,
+        ignore_persistent: bool,
+    ) -> bool {
+        let mut increment_value: Option<Vec<u8>> = None;
+        if value.is_some() {
+            let main_value = Option::Some(value.as_ref().unwrap().to_le_bytes().to_vec());
+            increment_value = main_value;
+        } else {
+            increment_value = Option::Some(i32_to_vec(1));
+        }
+        let memory_usage = std::mem::size_of_val(&increment_value.clone().unwrap());
+
+        // Memory check and eviction
+        {
+            let mut memory_handler = self.memory_handler.lock().unwrap();
+            if memory_handler.is_memory_limit_finished() {
+                println!("Memory limit exceeded. Evicting entries...");
+                self.evict_entries();
+                if self.enable_log {
+                    Logger::log_warn("Memory limit exceeded. Evicting entries").write_log_to_file();
+                }
+            }
+        }
+
+        // Check if memory limit is still within bounds after eviction
+        if self
+            .memory_handler
+            .lock()
+            .unwrap()
+            .is_memory_limit_finished()
+        {
+            println!("Failed to set value: Memory usage has exceeded the configured limit.");
+            if self.enable_log {
+                Logger::log_info("Failed to set value: Memory usage has exceeded the limit.")
+                    .write_log_to_file();
+            }
+            return false;
+        }
+
+        // Increment logic
+        let mut store = self.store.lock().unwrap();
+        let cluster_store = store.entry(cluster.clone()).or_insert_with(HashMap::new);
+
+        let current_value = cluster_store
+            .entry(key.clone())
+            .and_modify(|(existing_value, _, _, _)| {
+                // Convert Vec<u8> to [u8; 4] and then to i32
+                let mut current_i32 = i32::from_le_bytes(existing_value[..4].try_into().unwrap());
+                current_i32 += vec_to_i32(increment_value.clone().unwrap()).unwrap();
+
+                // Update the value as Vec<u8>
+                *existing_value = current_i32.to_le_bytes().to_vec();
+            })
+            .or_insert((increment_value.clone().unwrap(), None, None, CacheType::Int))
+            .0
+            .clone();
+
+        // Memory management
+        let mut memory_handler = self.memory_handler.lock().unwrap();
+        memory_handler.add_memory(memory_usage);
+
+        // Persistence
+        if self.enable_log {
+            Logger::log_info(&format!(
+                "INCR in cluster {}: {} = {:?}",
+                cluster, key, current_value
+            ))
+            .write_log_to_file();
+        }
+
+        if self.persistent && !ignore_persistent {
+            let command = format!("INCR {} {} {:?}", cluster, key, current_value);
+            persistent_Manager::write_to_persistent_file(&command);
+        }
+
+        true
+    }
+
+    pub fn decr(
+        &mut self,
+        cluster: String,
+        key: String,
+        value: Option<i32>,
+        ignore_persistent: bool,
+    ) -> bool {
+        let mut deccrement_value: Option<Vec<u8>> = None;
+        if value.is_some() {
+            let main_value = Option::Some(value.as_ref().unwrap().to_le_bytes().to_vec());
+            deccrement_value = main_value;
+        } else {
+            deccrement_value = Option::Some(i32_to_vec(1));
+        }
+        let memory_usage = std::mem::size_of_val(&deccrement_value);
+        let get_cache = self.get(&cluster, &key);
+        if get_cache.value.is_some() {
+            // decrement logic
+            let mut store = self.store.lock().unwrap();
+            let cluster_store = store.entry(cluster.clone()).or_insert_with(HashMap::new);
+            let current_value = cluster_store
+                .entry(key.clone())
+                .and_modify(|(existing_value, _, _, cache_type)| {
+                    // Convert Vec<u8> to [u8; 4] and then to i32
+                    let mut current_i32 =
+                        i32::from_le_bytes(existing_value[..4].try_into().unwrap());
+                    current_i32 -= vec_to_i32(deccrement_value.clone().unwrap()).unwrap();
+                    if current_i32 == 0 || current_i32 < 0 {
+                        current_i32 = 0;
+                    }
+                    // Update the value as Vec<u8>
+                    *existing_value = current_i32.to_le_bytes().to_vec();
+                })
+                .or_insert((
+                    deccrement_value.clone().unwrap(),
+                    None,
+                    None,
+                    CacheType::Int,
+                ))
+                .0
+                .clone();
+
+            // Memory management
+            let mut memory_handler = self.memory_handler.lock().unwrap();
+            memory_handler.add_memory(memory_usage);
+
+            // Persistence
+            if self.enable_log {
+                Logger::log_info(&format!(
+                    "DECR in cluster {}: {} = {:?}",
+                    cluster, key, current_value
+                ))
+                .write_log_to_file();
+            }
+            if self.persistent && !ignore_persistent {
+                let command = format!("DECR {} {} {:?}", cluster, key, current_value);
+                persistent_Manager::write_to_persistent_file(&command);
+            }
+            true
+        } else {
+            Logger::log_error(&format!(
+                "DECR in cluster {}: {}  not set key not found",
+                cluster, key
+            ))
+            .write_log_to_file();
+            false
+        }
     }
 
     pub fn initialize_from_commands(&mut self) {
@@ -122,6 +307,64 @@ impl Cache {
                     self.set(cluster, key, vec_u8, None, true);
                 }
             }
+            "INCR" => {
+                let cleaned_input = command
+                    .trim_start_matches('[')
+                    .trim_end_matches(']')
+                    .trim_start_matches('"')
+                    .trim_end_matches('"');
+                let (before_bracket, after_bracket) =
+                    cleaned_input.split_once('[').unwrap_or((cleaned_input, ""));
+                let (inside_bracket, after_closing_bracket) =
+                    after_bracket.split_once(']').unwrap_or((after_bracket, ""));
+                let inside_bracket_cleaned = inside_bracket.replace(" ", "");
+                let set_command = format!(
+                    "{}[{}]{}",
+                    before_bracket, inside_bracket_cleaned, after_closing_bracket
+                );
+
+                let splited_command: Vec<&str> = set_command.split_whitespace().collect();
+                if splited_command.len() == 4 {
+                    let trimmed_input = splited_command[3].trim_matches(|c| c == '[' || c == ']');
+                    let str_numbers = trimmed_input.split(",");
+                    let vec_u8: Vec<u8> = str_numbers
+                        .map(|s| s.parse().expect("Invalid byte"))
+                        .collect();
+                    let main_value = vec_to_i32(vec_u8);
+                    let cluster = splited_command[1].to_string();
+                    let key = splited_command[2].to_string();
+                    self.add_incr(cluster, key, main_value, true);
+                }
+            }
+            "DECR" => {
+                let cleaned_input = command
+                    .trim_start_matches('[')
+                    .trim_end_matches(']')
+                    .trim_start_matches('"')
+                    .trim_end_matches('"');
+                let (before_bracket, after_bracket) =
+                    cleaned_input.split_once('[').unwrap_or((cleaned_input, ""));
+                let (inside_bracket, after_closing_bracket) =
+                    after_bracket.split_once(']').unwrap_or((after_bracket, ""));
+                let inside_bracket_cleaned = inside_bracket.replace(" ", "");
+                let set_command = format!(
+                    "{}[{}]{}",
+                    before_bracket, inside_bracket_cleaned, after_closing_bracket
+                );
+
+                let splited_command: Vec<&str> = set_command.split_whitespace().collect();
+                if splited_command.len() == 4 {
+                    let trimmed_input = splited_command[3].trim_matches(|c| c == '[' || c == ']');
+                    let str_numbers = trimmed_input.split(",");
+                    let vec_u8: Vec<u8> = str_numbers
+                        .map(|s| s.parse().expect("Invalid byte"))
+                        .collect();
+                    let main_value = vec_to_i32(vec_u8);
+                    let cluster = splited_command[1].to_string();
+                    let key = splited_command[2].to_string();
+                    self.decr(cluster, key, main_value, true);
+                }
+            }
             "DEL" => {
                 if parts.len() == 3 {
                     let cluster = parts[1].to_string();
@@ -173,7 +416,10 @@ impl Cache {
             let mut store = self.store.lock().unwrap();
             let cluster_store = store.entry(cluster.clone()).or_insert_with(HashMap::new);
             let expiration_time = ttl.map(|duration| Instant::now() + duration);
-            cluster_store.insert(key.clone(), (value.clone(), expiration_time, ttl));
+            cluster_store.insert(
+                key.clone(),
+                (value.clone(), expiration_time, ttl, CacheType::Str),
+            );
             let mut memory_handler = self.memory_handler.lock().unwrap();
             memory_handler.add_memory(memory_usage);
 
@@ -205,11 +451,11 @@ impl Cache {
         }
     }
 
-    pub fn get(&self, cluster: &str, key: &str) -> Option<Vec<u8>> {
+    pub fn get(&self, cluster: &str, key: &str) -> ResultValue {
         let mut store = self.store.lock().unwrap();
 
         if let Some(cluster_store) = store.get_mut(cluster) {
-            cluster_store.retain(|k, (_, expiration_time, _)| {
+            cluster_store.retain(|k, (_, expiration_time, _, _)| {
                 if let Some(exp) = expiration_time {
                     exp > &mut Instant::now()
                 } else {
@@ -217,14 +463,39 @@ impl Cache {
                 }
             });
         }
-        let result = store
-            .get(cluster)
-            .and_then(|cluster_store| cluster_store.get(key).cloned().map(|(value, _, _)| value));
-        if self.enable_log == true && result.is_some() {
-            let get_log = Logger::log_info("value get ");
+        let value = store.get(cluster).and_then(|cluster_store| {
+            cluster_store
+                .get(key)
+                .cloned()
+                .map(|(value, _, _, _)| value)
+        });
+        let cahe_type = store.get(cluster).and_then(|cluster_store| {
+            cluster_store
+                .get(key)
+                .cloned()
+                .map(|(_, _, _, cache_type)| cache_type)
+        });
+        let mut value_type = None;
+        if ((cahe_type.as_ref().is_some())
+            && cahe_type.as_ref().unwrap().as_i32() == CacheType::Str.as_i32())
+        {
+            value_type = Option::Some(CacheType::Str);
+        }
+        if ((cahe_type.clone().is_some())
+            && cahe_type.as_ref().unwrap().as_i32() == CacheType::Int.as_i32())
+        {
+            value_type = Option::Some(CacheType::Int);
+        }
+        if self.enable_log == true && value.is_some() {
+            let cache_message = format!("value get");
+            let get_log = Logger::log_info_data(&cache_message);
             get_log.write_log_to_file();
         }
-        return result;
+
+        return ResultValue {
+            value: value,
+            value_type: value_type,
+        };
     }
 
     pub fn get_keys_of_cluster(&self, cluster: &str) -> Option<Vec<String>> {
@@ -237,7 +508,7 @@ impl Cache {
     pub fn delete(&self, cluster: &str, key: &str, ignore_persistent: bool) {
         let mut store = self.store.lock().unwrap();
         if let Some(cluster_store) = store.get_mut(cluster) {
-            if let Some((value, _, _)) = cluster_store.remove(key) {
+            if let Some((value, _, _, _)) = cluster_store.remove(key) {
                 let mut memory_handler = self.memory_handler.lock().unwrap();
                 let memory_usage = std::mem::size_of_val(&value);
                 memory_handler.delete_memory(memory_usage);
@@ -259,7 +530,7 @@ impl Cache {
             let mut memory_handler = self.memory_handler.lock().unwrap();
             let total_size: usize = cluster_store
                 .values()
-                .map(|(v, _, _)| std::mem::size_of_val(v))
+                .map(|(v, _, _, _)| std::mem::size_of_val(v))
                 .sum();
             memory_handler.delete_memory(total_size);
             if self.enable_log == true {
@@ -279,7 +550,7 @@ impl Cache {
         let total_size: usize = store
             .values()
             .flat_map(|cluster_store| cluster_store.values())
-            .map(|(v, _, _)| v.len())
+            .map(|(v, _, _, _)| v.len())
             .sum();
         store.clear();
         memory_handler.delete_memory(total_size);
@@ -306,7 +577,7 @@ impl Cache {
         let mut store = self.store.lock().unwrap();
 
         for cluster_store in store.values_mut() {
-            cluster_store.retain(|_, (_, expiration_time, _)| {
+            cluster_store.retain(|_, (_, expiration_time, _, _)| {
                 if let Some(exp) = expiration_time {
                     exp > &mut Instant::now()
                 } else {
@@ -337,14 +608,17 @@ impl Cache {
 
     fn evict_volatile_lru(
         &self,
-        store: &mut HashMap<String, HashMap<String, (Vec<u8>, Option<Instant>, Option<Duration>)>>,
+        store: &mut HashMap<
+            String,
+            HashMap<String, (Vec<u8>, Option<Instant>, Option<Duration>, CacheType)>,
+        >,
         memory_handler: &mut memory_handling::memory_handling::MemoryHandler,
     ) {
         let mut lru_key: Option<(String, String)> = None;
 
         // Find the least recently used key among those with an expiration set
         for (cluster_key, cluster_store) in store.iter() {
-            for (key, (_, expiration_time, _)) in cluster_store {
+            for (key, (_, expiration_time, _, _)) in cluster_store {
                 if let Some(exp) = expiration_time {
                     if exp > &Instant::now() {
                         if lru_key.is_none() {
@@ -358,7 +632,7 @@ impl Cache {
         // Evict the LRU key
         if let Some((cluster_key, key_to_evict)) = lru_key {
             if let Some(cluster_store) = store.get_mut(&cluster_key) {
-                if let Some((value, _, _)) = cluster_store.remove(&key_to_evict) {
+                if let Some((value, _, _, _)) = cluster_store.remove(&key_to_evict) {
                     let memory_usage = std::mem::size_of_val(&value);
                     memory_handler.delete_memory(memory_usage);
                     println!(
@@ -372,14 +646,17 @@ impl Cache {
 
     fn evict_volatile_ttl(
         &self,
-        store: &mut HashMap<String, HashMap<String, (Vec<u8>, Option<Instant>, Option<Duration>)>>,
+        store: &mut HashMap<
+            String,
+            HashMap<String, (Vec<u8>, Option<Instant>, Option<Duration>, CacheType)>,
+        >,
         memory_handler: &mut memory_handling::memory_handling::MemoryHandler,
     ) {
         let mut shortest_ttl_key: Option<(String, String, Instant)> = None;
 
         // Find the key with the shortest TTL among those with an expiration set
         for (cluster_key, cluster_store) in store.iter() {
-            for (key, (_, expiration_time, _)) in cluster_store {
+            for (key, (_, expiration_time, _, _)) in cluster_store {
                 if let Some(exp) = expiration_time {
                     if exp > &Instant::now() {
                         if shortest_ttl_key.is_none() {
@@ -393,7 +670,7 @@ impl Cache {
         // Evict the key with the shortest TTL
         if let Some((cluster_key, key_to_evict, _)) = shortest_ttl_key {
             if let Some(cluster_store) = store.get_mut(&cluster_key) {
-                if let Some((value, _, _)) = cluster_store.remove(&key_to_evict) {
+                if let Some((value, _, _, _)) = cluster_store.remove(&key_to_evict) {
                     let memory_usage = std::mem::size_of_val(&value);
                     memory_handler.delete_memory(memory_usage);
                     println!(
@@ -407,14 +684,17 @@ impl Cache {
 
     fn evict_allkeys_lru(
         &self,
-        store: &mut HashMap<String, HashMap<String, (Vec<u8>, Option<Instant>, Option<Duration>)>>,
+        store: &mut HashMap<
+            String,
+            HashMap<String, (Vec<u8>, Option<Instant>, Option<Duration>, CacheType)>,
+        >,
         memory_handler: &mut memory_handling::memory_handling::MemoryHandler,
     ) {
         let mut lru_key: Option<(String, String)> = None;
 
         // Find the least recently used key regardless of expiration
         for (cluster_key, cluster_store) in store.iter() {
-            for (key, (_, _expiration_time, _)) in cluster_store {
+            for (key, (_, _expiration_time, _, _)) in cluster_store {
                 if lru_key.is_none() {
                     lru_key = Some((cluster_key.clone(), key.clone()));
                 }
@@ -424,7 +704,7 @@ impl Cache {
         // Evict the LRU key
         if let Some((cluster_key, key_to_evict)) = lru_key {
             if let Some(cluster_store) = store.get_mut(&cluster_key) {
-                if let Some((value, _, _)) = cluster_store.remove(&key_to_evict) {
+                if let Some((value, _, _, _)) = cluster_store.remove(&key_to_evict) {
                     let memory_usage = std::mem::size_of_val(&value);
                     memory_handler.delete_memory(memory_usage);
                     println!(
@@ -438,7 +718,10 @@ impl Cache {
 
     fn evict_allkeys_random(
         &self,
-        store: &mut HashMap<String, HashMap<String, (Vec<u8>, Option<Instant>, Option<Duration>)>>,
+        store: &mut HashMap<
+            String,
+            HashMap<String, (Vec<u8>, Option<Instant>, Option<Duration>, CacheType)>,
+        >,
         memory_handler: &mut memory_handling::memory_handling::MemoryHandler,
     ) {
         let keys: Vec<(String, String)> = store
@@ -446,14 +729,14 @@ impl Cache {
             .flat_map(|(cluster_key, cluster_store)| {
                 cluster_store
                     .iter()
-                    .map(|(key, (_value, _, _))| (cluster_key.clone(), key.clone()))
+                    .map(|(key, (_value, _, _, _))| (cluster_key.clone(), key.clone()))
                     .collect::<Vec<_>>()
             })
             .collect();
 
         if let Some((cluster_key, key_to_evict)) = keys.choose(&mut rand::thread_rng()) {
             if let Some(cluster_store) = store.get_mut(cluster_key) {
-                if let Some((value, _, _)) = cluster_store.remove(key_to_evict) {
+                if let Some((value, _, _, _)) = cluster_store.remove(key_to_evict) {
                     let memory_usage = std::mem::size_of_val(&value);
                     memory_handler.delete_memory(memory_usage);
                     println!(
@@ -486,4 +769,16 @@ impl EvictionStrategy {
             }
         }
     }
+}
+//helpers
+fn vec_to_i32(vec: Vec<u8>) -> Option<i32> {
+    if vec.len() == 4 {
+        let byte_array: [u8; 4] = vec.try_into().ok()?;
+        Some(i32::from_le_bytes(byte_array))
+    } else {
+        None
+    }
+}
+fn i32_to_vec(value: i32) -> Vec<u8> {
+    value.to_le_bytes().to_vec()
 }
