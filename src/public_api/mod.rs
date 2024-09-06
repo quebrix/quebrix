@@ -1,3 +1,14 @@
+pub mod acl_authenticate;
+pub mod acl_set_user;
+pub mod decr_command;
+pub mod del_command;
+pub mod get_command;
+pub mod incr_command;
 pub mod server;
-
+pub mod check_connection_command;
+pub mod get_all_clusters_command;
+pub mod get_keys_command;
+pub mod set_command;
+pub mod set_cluster_command;
 pub use server::run_server;
+pub mod clr_command;
