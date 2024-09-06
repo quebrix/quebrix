@@ -1,5 +1,9 @@
 use crate::{
-    cache::{cache::ResultValue, Cache},
+    cache::{
+        cache::ResultValue, clear_cluster::ClearCluster, decr::Decr, delete::Delete, get::Get,
+        get_all_clusters::GetAllClusters, get_cluster_keys::GetClusterKeys, incr::Incr, set::Set,
+        set_cluster::SetCluster, Cache,
+    },
     creds::cred_manager::{CredsManager, RoleManagement, User},
 };
 use actix_web::{
@@ -190,11 +194,10 @@ pub async fn incr(
     if !creds.lock().unwrap().authenticate(username, password) {
         return HttpResponse::Unauthorized().json(ApiResponse::fail("Authentication failed"));
     }
-    let set_result =
-        cache
-            .lock()
-            .unwrap()
-            .add_incr(cluster.clone(), key.clone(), value.clone(), false);
+    let set_result = cache
+        .lock()
+        .unwrap()
+        .incr(cluster.clone(), key.clone(), value.clone(), false);
 
     if set_result {
         HttpResponse::Ok().json(ApiResponse::ok("Set INCR successful"))

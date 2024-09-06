@@ -1,8 +1,8 @@
+use crate::convert::vec_to_i32;
 use crate::creds::cred_manager::CredsManager;
 use crate::known_directories::KNOWN_DIRECTORIES;
 use crate::logger::logger_manager::Logger;
 use crate::memory_handling;
-use crate::persistent::persistent_Manager;
 use chrono::prelude::*;
 use core::str;
 use rand::seq::SliceRandom;
@@ -14,6 +14,13 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use super::clear_all::ClearAll;
+use super::clear_cluster::ClearCluster;
+use super::decr::Decr;
+use super::delete::Delete;
+use super::incr::Incr;
+use super::set::Set;
+
 #[derive(Clone, Serialize)]
 pub enum CacheType {
     Str = 1,
@@ -21,15 +28,15 @@ pub enum CacheType {
 }
 
 impl CacheType {
-    fn as_i32(&self) -> &i32 {
+    pub fn as_i32(&self) -> &i32 {
         match self {
             CacheType::Int => &1,
             CacheType::Str => &2,
         }
     }
-    fn as_str(&self) -> &str {
+    pub fn as_str(&self) -> &str {
         match self {
-            CacheType::Int => "Intiger",
+            CacheType::Int => "integer",
             CacheType::Str => "string",
         }
     }
@@ -43,8 +50,8 @@ pub struct ResultValue {
 
 #[derive(Clone)]
 pub struct Cache {
-    evict_type: i32,
-    store: Arc<
+    pub evict_type: i32,
+    pub store: Arc<
         Mutex<
             HashMap<
                 String,
@@ -52,11 +59,11 @@ pub struct Cache {
             >,
         >,
     >,
-    port: u16,
-    memory_handler: Arc<Mutex<memory_handling::memory_handling::MemoryHandler>>,
-    enable_log: bool,
-    creds_manager: Arc<Mutex<CredsManager>>,
-    persistent: bool,
+    pub port: u16,
+    pub memory_handler: Arc<Mutex<memory_handling::memory_handling::MemoryHandler>>,
+    pub enable_log: bool,
+    pub creds_manager: Arc<Mutex<CredsManager>>,
+    pub persistent: bool,
 }
 
 impl Cache {
@@ -83,157 +90,6 @@ impl Cache {
         }
 
         cache
-    }
-
-    pub fn add_incr(
-        &mut self,
-        cluster: String,
-        key: String,
-        value: Option<i32>,
-        ignore_persistent: bool,
-    ) -> bool {
-        let mut increment_value: Option<Vec<u8>> = None;
-        if value.is_some() {
-            let main_value = Option::Some(value.as_ref().unwrap().to_le_bytes().to_vec());
-            increment_value = main_value;
-        } else {
-            increment_value = Option::Some(i32_to_vec(1));
-        }
-        let memory_usage = std::mem::size_of_val(&increment_value.clone().unwrap());
-
-        // Memory check and eviction
-        {
-            let mut memory_handler = self.memory_handler.lock().unwrap();
-            if memory_handler.is_memory_limit_finished() {
-                println!("Memory limit exceeded. Evicting entries...");
-                self.evict_entries();
-                if self.enable_log {
-                    Logger::log_warn("Memory limit exceeded. Evicting entries").write_log_to_file();
-                }
-            }
-        }
-
-        // Check if memory limit is still within bounds after eviction
-        if self
-            .memory_handler
-            .lock()
-            .unwrap()
-            .is_memory_limit_finished()
-        {
-            println!("Failed to set value: Memory usage has exceeded the configured limit.");
-            if self.enable_log {
-                Logger::log_info("Failed to set value: Memory usage has exceeded the limit.")
-                    .write_log_to_file();
-            }
-            return false;
-        }
-
-        // Increment logic
-        let mut store = self.store.lock().unwrap();
-        let cluster_store = store.entry(cluster.clone()).or_insert_with(HashMap::new);
-
-        let current_value = cluster_store
-            .entry(key.clone())
-            .and_modify(|(existing_value, _, _, _)| {
-                // Convert Vec<u8> to [u8; 4] and then to i32
-                let mut current_i32 = i32::from_le_bytes(existing_value[..4].try_into().unwrap());
-                current_i32 += vec_to_i32(increment_value.clone().unwrap()).unwrap();
-
-                // Update the value as Vec<u8>
-                *existing_value = current_i32.to_le_bytes().to_vec();
-            })
-            .or_insert((increment_value.clone().unwrap(), None, None, CacheType::Int))
-            .0
-            .clone();
-
-        // Memory management
-        let mut memory_handler = self.memory_handler.lock().unwrap();
-        memory_handler.add_memory(memory_usage);
-
-        // Persistence
-        if self.enable_log {
-            Logger::log_info(&format!(
-                "INCR in cluster {}: {} = {:?}",
-                cluster, key, current_value
-            ))
-            .write_log_to_file();
-        }
-
-        if self.persistent && !ignore_persistent {
-            let command = format!("INCR {} {} {:?}", cluster, key, current_value);
-            persistent_Manager::write_to_persistent_file(&command);
-        }
-
-        true
-    }
-
-    pub fn decr(
-        &mut self,
-        cluster: String,
-        key: String,
-        value: Option<i32>,
-        ignore_persistent: bool,
-    ) -> bool {
-        let mut deccrement_value: Option<Vec<u8>> = None;
-        if value.is_some() {
-            let main_value = Option::Some(value.as_ref().unwrap().to_le_bytes().to_vec());
-            deccrement_value = main_value;
-        } else {
-            deccrement_value = Option::Some(i32_to_vec(1));
-        }
-        let memory_usage = std::mem::size_of_val(&deccrement_value);
-        let get_cache = self.get(&cluster, &key);
-        if get_cache.value.is_some() {
-            // decrement logic
-            let mut store = self.store.lock().unwrap();
-            let cluster_store = store.entry(cluster.clone()).or_insert_with(HashMap::new);
-            let current_value = cluster_store
-                .entry(key.clone())
-                .and_modify(|(existing_value, _, _, cache_type)| {
-                    // Convert Vec<u8> to [u8; 4] and then to i32
-                    let mut current_i32 =
-                        i32::from_le_bytes(existing_value[..4].try_into().unwrap());
-                    current_i32 -= vec_to_i32(deccrement_value.clone().unwrap()).unwrap();
-                    if current_i32 == 0 || current_i32 < 0 {
-                        current_i32 = 0;
-                    }
-                    // Update the value as Vec<u8>
-                    *existing_value = current_i32.to_le_bytes().to_vec();
-                })
-                .or_insert((
-                    deccrement_value.clone().unwrap(),
-                    None,
-                    None,
-                    CacheType::Int,
-                ))
-                .0
-                .clone();
-
-            // Memory management
-            let mut memory_handler = self.memory_handler.lock().unwrap();
-            memory_handler.add_memory(memory_usage);
-
-            // Persistence
-            if self.enable_log {
-                Logger::log_info(&format!(
-                    "DECR in cluster {}: {} = {:?}",
-                    cluster, key, current_value
-                ))
-                .write_log_to_file();
-            }
-            if self.persistent && !ignore_persistent {
-                let command = format!("DECR {} {} {:?}", cluster, key, current_value);
-                persistent_Manager::write_to_persistent_file(&command);
-            }
-            true
-        } else {
-            Logger::log_error(&format!(
-                "DECR in cluster {}: {}  not set key not found",
-                cluster, key
-            ))
-            .write_log_to_file();
-            false
-        }
     }
 
     pub fn initialize_from_commands(&mut self) {
@@ -333,7 +189,7 @@ impl Cache {
                     let main_value = vec_to_i32(vec_u8);
                     let cluster = splited_command[1].to_string();
                     let key = splited_command[2].to_string();
-                    self.add_incr(cluster, key, main_value, true);
+                    self.incr(cluster, key, main_value, true);
                 }
             }
             "DECR" => {
@@ -383,188 +239,6 @@ impl Cache {
         }
     }
 
-    pub fn set(
-        &mut self,
-        cluster: String,
-        key: String,
-        value: Vec<u8>,
-        ttl: Option<Duration>,
-        ignore_persistent: bool,
-    ) -> bool {
-        let memory_usage = std::mem::size_of_val(&value);
-
-        // Check if the memory limit is reached
-        {
-            let memory_handler = self.memory_handler.lock().unwrap();
-            if memory_handler.is_memory_limit_finished() {
-                println!("Memory limit exceeded. Evicting entries...");
-                self.evict_entries();
-                if self.enable_log {
-                    let memory_handler_log =
-                        Logger::log_warn("Memory limit exceeded. Evicting entries");
-                    memory_handler_log.write_log_to_file();
-                }
-            }
-        }
-
-        if !self
-            .memory_handler
-            .lock()
-            .unwrap()
-            .is_memory_limit_finished()
-        {
-            let mut store = self.store.lock().unwrap();
-            let cluster_store = store.entry(cluster.clone()).or_insert_with(HashMap::new);
-            let expiration_time = ttl.map(|duration| Instant::now() + duration);
-            cluster_store.insert(
-                key.clone(),
-                (value.clone(), expiration_time, ttl, CacheType::Str),
-            );
-            let mut memory_handler = self.memory_handler.lock().unwrap();
-            memory_handler.add_memory(memory_usage);
-
-            if self.enable_log {
-                let set_log = Logger::log_info("Set value in cluster");
-                set_log.write_log_to_file();
-                if self.persistent && !ignore_persistent && ttl.is_none() {
-                    let command = format!("SET {} {} {:?}", cluster, key, value);
-                    persistent_Manager::write_to_persistent_file(&command);
-                }
-            }
-            return true;
-        } else {
-            println!("Failed to set value: Memory usage has exceeded the configured limit. Update your configuration JSON file.");
-            if self.enable_log {
-                let error_set_log = Logger::log_info("Failed to set value: Memory usage has exceeded the configured limit. Update your configuration JSON file.");
-                error_set_log.write_log_to_file();
-            }
-            return false;
-        }
-    }
-
-    pub fn set_cluster(&self, cluster: String) {
-        let mut store = self.store.lock().unwrap();
-        store.entry(cluster).or_insert_with(HashMap::new);
-        if self.enable_log == true {
-            let set_cluster_log = Logger::log_info("cluster set ");
-            set_cluster_log.write_log_to_file();
-        }
-    }
-
-    pub fn get(&self, cluster: &str, key: &str) -> ResultValue {
-        let mut store = self.store.lock().unwrap();
-
-        if let Some(cluster_store) = store.get_mut(cluster) {
-            cluster_store.retain(|k, (_, expiration_time, _, _)| {
-                if let Some(exp) = expiration_time {
-                    exp > &mut Instant::now()
-                } else {
-                    true
-                }
-            });
-        }
-        let value = store.get(cluster).and_then(|cluster_store| {
-            cluster_store
-                .get(key)
-                .cloned()
-                .map(|(value, _, _, _)| value)
-        });
-        let cahe_type = store.get(cluster).and_then(|cluster_store| {
-            cluster_store
-                .get(key)
-                .cloned()
-                .map(|(_, _, _, cache_type)| cache_type)
-        });
-        let mut value_type = None;
-        if ((cahe_type.as_ref().is_some())
-            && cahe_type.as_ref().unwrap().as_i32() == CacheType::Str.as_i32())
-        {
-            value_type = Option::Some(CacheType::Str);
-        }
-        if ((cahe_type.clone().is_some())
-            && cahe_type.as_ref().unwrap().as_i32() == CacheType::Int.as_i32())
-        {
-            value_type = Option::Some(CacheType::Int);
-        }
-        if self.enable_log == true && value.is_some() {
-            let cache_message = format!("value get");
-            let get_log = Logger::log_info_data(&cache_message);
-            get_log.write_log_to_file();
-        }
-
-        return ResultValue {
-            value: value,
-            value_type: value_type,
-        };
-    }
-
-    pub fn get_keys_of_cluster(&self, cluster: &str) -> Option<Vec<String>> {
-        let store = self.store.lock().unwrap();
-        store
-            .get(cluster)
-            .map(|cluster_store| cluster_store.keys().cloned().collect())
-    }
-
-    pub fn delete(&self, cluster: &str, key: &str, ignore_persistent: bool) {
-        let mut store = self.store.lock().unwrap();
-        if let Some(cluster_store) = store.get_mut(cluster) {
-            if let Some((value, _, _, _)) = cluster_store.remove(key) {
-                let mut memory_handler = self.memory_handler.lock().unwrap();
-                let memory_usage = std::mem::size_of_val(&value);
-                memory_handler.delete_memory(memory_usage);
-                if self.enable_log == true {
-                    let delete_log = Logger::log_info("value deleted ");
-                    delete_log.write_log_to_file();
-                    if self.persistent && !ignore_persistent {
-                        let command = format!("DEL {} {}", cluster.clone(), key.clone());
-                        persistent_Manager::write_to_persistent_file(&command);
-                    }
-                }
-            }
-        }
-    }
-
-    pub fn clear_cluster(&self, cluster: &str, ignore_persistent: bool) {
-        let mut store = self.store.lock().unwrap();
-        if let Some(cluster_store) = store.remove(cluster) {
-            let mut memory_handler = self.memory_handler.lock().unwrap();
-            let total_size: usize = cluster_store
-                .values()
-                .map(|(v, _, _, _)| std::mem::size_of_val(v))
-                .sum();
-            memory_handler.delete_memory(total_size);
-            if self.enable_log == true {
-                let clear_cluster_log = Logger::log_info("cluster cleared ");
-                clear_cluster_log.write_log_to_file();
-                if self.persistent && !ignore_persistent {
-                    let command = format!("CLEAR_CLUSTER {}", cluster.clone());
-                    persistent_Manager::write_to_persistent_file(&command);
-                }
-            }
-        }
-    }
-
-    pub fn clear_all(&self, ignore_persistent: bool) {
-        let mut store = self.store.lock().unwrap();
-        let mut memory_handler = self.memory_handler.lock().unwrap();
-        let total_size: usize = store
-            .values()
-            .flat_map(|cluster_store| cluster_store.values())
-            .map(|(v, _, _, _)| v.len())
-            .sum();
-        store.clear();
-        memory_handler.delete_memory(total_size);
-        if self.persistent && !ignore_persistent {
-            let command = format!("CLEAR_ALL");
-            persistent_Manager::write_to_persistent_file(&command);
-        }
-    }
-
-    pub fn get_all_clusters(&self) -> Vec<String> {
-        let store = self.store.lock().unwrap();
-        store.keys().cloned().collect()
-    }
-
     pub fn configure_default_port(&mut self, port: u16) {
         self.port = port;
     }
@@ -573,22 +247,8 @@ impl Cache {
         self.port
     }
 
-    pub fn clear_expired(&self) {
-        let mut store = self.store.lock().unwrap();
-
-        for cluster_store in store.values_mut() {
-            cluster_store.retain(|_, (_, expiration_time, _, _)| {
-                if let Some(exp) = expiration_time {
-                    exp > &mut Instant::now()
-                } else {
-                    true
-                }
-            });
-        }
-    }
-
     // Eviction strategies
-    fn evict_entries(&self) {
+    pub fn evict_entries(&self) {
         let mut store = self.store.lock().unwrap();
         let mut memory_handler = self.memory_handler.lock().unwrap();
         let eviction_strategy = EvictionStrategy::from_i32(self.evict_type);
@@ -769,16 +429,4 @@ impl EvictionStrategy {
             }
         }
     }
-}
-//helpers
-fn vec_to_i32(vec: Vec<u8>) -> Option<i32> {
-    if vec.len() == 4 {
-        let byte_array: [u8; 4] = vec.try_into().ok()?;
-        Some(i32::from_le_bytes(byte_array))
-    } else {
-        None
-    }
-}
-fn i32_to_vec(value: i32) -> Vec<u8> {
-    value.to_le_bytes().to_vec()
 }

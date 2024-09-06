@@ -2,6 +2,7 @@ use crate::public_api::server;
 use memory_handling::memory_handling::MemoryHandler;
 use std::sync::{Arc, Mutex};
 mod cache;
+mod convert;
 mod creds;
 mod crypto;
 mod jobs;
