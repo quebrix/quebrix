@@ -9,7 +9,7 @@ use crate::{
         acl_authenticate::authenticate_user, acl_set_user::add_user,
         check_connection_command::check_connection, clr_command::clear_cluster, decr_command::decr,
         del_command::delete, get_all_clusters_command::get_all_clusters, get_command::get,
-        get_keys_command::get_keys_of_cluster, incr_command::incr,
+        get_keys_command::get_keys_of_cluster, incr_command::incr, load_users_command::load_users,
         set_cluster_command::set_cluster, set_command::set,
     },
 };
@@ -22,6 +22,8 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+
+use super::{delete_user_command::delete_user, who_am_i_command::who_am_i};
 
 #[derive(Deserialize)]
 pub struct UserRequest {
@@ -79,9 +81,12 @@ pub async fn run_server(
             .app_data(web::Data::new(cache.clone()))
             .app_data(web::Data::new(creds.clone()))
             .route("/api/set", web::post().to(set))
+            .route("/api/load_users", web::get().to(load_users))
+            .route("/api/who_am_i", web::get().to(who_am_i))
             .route("/api/incr", web::post().to(incr))
             .route("/api/decr", web::post().to(decr))
             .route("/api/get/{cluster}/{key}", web::get().to(get))
+            .route("/api/delete_user/{username}", web::delete().to(delete_user))
             .route("/api/ping", web::get().to(check_connection))
             .route("/api/delete/{cluster}/{key}", web::delete().to(delete))
             .route(

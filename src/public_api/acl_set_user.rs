@@ -1,5 +1,9 @@
 use super::server::ApiResponse;
 use super::server::UserRequest;
+use crate::creds::acl_add_user::IAddUser;
+use crate::creds::auth::Authenticator;
+use crate::creds::cred_manager::ACLResult;
+use crate::creds::role_manager::IRoleManager;
 use crate::{
     cache::{
         cache::ResultValue, clear_cluster::ClearCluster, decr::Decr, delete::Delete, get::Get,
@@ -51,13 +55,16 @@ pub async fn add_user(
         role,
     } = &*payload;
 
-    match creds.lock().unwrap().add_user(
+    let mut cred = creds.lock().unwrap();
+    let cred_result = cred.add_user(
         username.clone(),
         password.clone(),
         role.clone().parse::<RoleManagement>().unwrap(),
         Option::Some((&current_user)),
-    ) {
-        Ok(_) => HttpResponse::Ok().json(ApiResponse::ok("User added successfully")),
-        Err(err) => HttpResponse::InternalServerError().json(ApiResponse::fail(err.to_string())),
+    );
+    if cred_result.is_success {
+        return HttpResponse::Ok().json(ApiResponse::ok(cred_result.message));
+    } else {
+        return HttpResponse::Ok().json(ApiResponse::fail(cred_result.message));
     }
 }
