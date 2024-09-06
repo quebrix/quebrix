@@ -1,5 +1,9 @@
 use crate::{
-    cache::{cache::ResultValue, incr::INCR, Cache},
+    cache::{
+        cache::ResultValue, clear_cluster::ClearCluster, decr::Decr, delete::Delete, get::Get,
+        get_all_clusters::GetAllClusters, get_cluster_keys::GetClusterKeys, incr::Incr, set::Set,
+        set_cluster::SetCluster, Cache,
+    },
     creds::cred_manager::{CredsManager, RoleManagement, User},
 };
 use actix_web::{

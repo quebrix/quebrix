@@ -8,7 +8,7 @@ use crate::{
 
 use super::{cache::CacheType, Cache};
 
-pub trait INCR {
+pub trait Incr {
     fn incr(
         &mut self,
         cluster: String,
@@ -18,7 +18,7 @@ pub trait INCR {
     ) -> bool;
 }
 
-impl INCR for Cache {
+impl Incr for Cache {
     fn incr(
         &mut self,
         cluster: String,
