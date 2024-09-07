@@ -20,7 +20,7 @@ pub struct User {
     pub role: RoleManagement,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct ACLResult<'a> {
     pub is_success: bool,
     pub message: &'a str,

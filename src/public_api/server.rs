@@ -4,7 +4,10 @@ use crate::{
         get_all_clusters::GetAllClusters, get_cluster_keys::GetClusterKeys, incr::Incr, set::Set,
         set_cluster::SetCluster, Cache,
     },
-    creds::cred_manager::{CredsManager, RoleManagement, User},
+    creds::{
+        cred_manager::{CredsManager, RoleManagement, User},
+        load_user_from_file,
+    },
     public_api::{
         acl_authenticate::authenticate_user, acl_set_user::add_user,
         check_connection_command::check_connection, clr_command::clear_cluster, decr_command::decr,
@@ -23,7 +26,10 @@ use std::fmt;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use super::{delete_user_command::delete_user, who_am_i_command::who_am_i};
+use super::{
+    delete_user_command::delete_user, load_users_from_file_command::load_users_from_file,
+    who_am_i_command::who_am_i,
+};
 
 #[derive(Deserialize)]
 pub struct UserRequest {
@@ -82,6 +88,10 @@ pub async fn run_server(
             .app_data(web::Data::new(creds.clone()))
             .route("/api/set", web::post().to(set))
             .route("/api/load_users", web::get().to(load_users))
+            .route(
+                "/api/load_users_from_file",
+                web::post().to(load_users_from_file),
+            )
             .route("/api/who_am_i", web::get().to(who_am_i))
             .route("/api/incr", web::post().to(incr))
             .route("/api/decr", web::post().to(decr))

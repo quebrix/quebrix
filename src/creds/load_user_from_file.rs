@@ -1,4 +1,4 @@
-use super::cred_manager::{CredsManager, RoleManagement, User};
+use super::cred_manager::{ACLResult, CredsManager, RoleManagement, User};
 use super::cred_manager::{ENCRYPT_KEY, IV_PATTERN};
 use crate::crypto::crypto_service::Encryptor;
 use crate::known_directories::KNOWN_DIRECTORIES;
@@ -8,17 +8,18 @@ use std::fs::OpenOptions;
 use std::io::{self, BufRead, BufReader, Write};
 use std::path::PathBuf;
 pub trait LoadUserFromFile {
-    fn load_users_from_file(&mut self);
+    fn load_users_from_file(&mut self) -> ACLResult;
 }
 
 impl LoadUserFromFile for CredsManager {
-    fn load_users_from_file(&mut self) {
-        let _ = self.create_admin();
-        if self.enable_log == true {
-            let message = "default user added";
-            let set_log = Logger::log_info(message);
-            set_log.write_log_to_file();
+    fn load_users_from_file(&mut self) -> ACLResult {
+        self.create_admin();
+
+        if self.enable_log {
+            let message = "default user recognized";
+            Logger::log_info(message).write_log_to_file();
         }
+
         let encryptor = Encryptor::new(ENCRYPT_KEY, IV_PATTERN);
 
         if self.users.is_empty() {
@@ -26,48 +27,81 @@ impl LoadUserFromFile for CredsManager {
         }
 
         let kn_dir = &KNOWN_DIRECTORIES;
-        let open_file_result = {
-            OpenOptions::new()
-                .read(true)
-                .open(PathBuf::from(&kn_dir.creds_directory).join("users.txt"))
+        let file_path = PathBuf::from(&kn_dir.creds_directory).join("users.txt");
+
+        let open_file_result = OpenOptions::new().read(true).open(&file_path);
+        let file = match open_file_result {
+            Ok(file) => file,
+            Err(_) => {
+                if self.enable_log {
+                    let message = "Failed to open users file path";
+                    Logger::log_info(message).write_log_to_file();
+                }
+                eprintln!("Failed to open users file");
+                return ACLResult::faild("failed to load user file");
+            }
         };
 
-        if let Ok(file) = open_file_result {
-            let reader = BufReader::new(file);
-            for line in reader.lines() {
-                if let Ok(line) = line {
-                    let parts: Vec<&str> = line.split(':').collect();
-                    if parts.len() == 3 {
-                        let trimmed_input = parts[1].trim_matches(|c| c == '[' || c == ']');
-                        let str_numbers = trimmed_input.split(", ");
-                        let vec_u8: Vec<u8> = str_numbers
-                            .map(|s| s.parse().expect("Invalid byte"))
-                            .collect();
-                        self.users.insert(
-                            parts[0].to_string(),
-                            User {
-                                username: parts[0].to_string(),
-                                password: vec_u8,
-                                role: parts[2].parse::<RoleManagement>().unwrap(),
-                            },
-                        );
-                    } else {
-                        if self.enable_log == true {
-                            let message = &format!("invalid line format : {:?}", line.clone());
-                            let set_log = Logger::log_error_data(message);
-                            set_log.write_log_to_file();
-                        }
-                        eprintln!("Invalid line format: {}", line);
+        let reader = BufReader::new(file);
+        for line in reader.lines() {
+            let line = match line {
+                Ok(line) => line,
+                Err(_) => {
+                    if self.enable_log {
+                        let message = "Failed to read line from users file";
+                        Logger::log_error(&message).write_log_to_file();
                     }
+                    return ACLResult::faild("failed to read user file");
                 }
+            };
+
+            // Split the line into parts (username, password, role)
+            let parts: Vec<&str> = line.split(':').collect();
+            if parts.len() == 3 {
+                // Parse the password into a Vec<u8>
+                let trimmed_input = parts[1].trim_matches(|c| c == '[' || c == ']');
+                let vec_u8: Vec<u8> = trimmed_input
+                    .split(", ")
+                    .map(|s| {
+                        s.parse().unwrap_or_else(|_| {
+                            if self.enable_log {
+                                let message = format!("Invalid byte format in line: {}", line);
+                                Logger::log_error_data(&message).write_log_to_file();
+                            }
+                            eprintln!("Invalid byte format: {}", line);
+                            0u8 // Return a default value or handle it gracefully
+                        })
+                    })
+                    .collect();
+
+                self.users.insert(
+                    parts[0].to_string(),
+                    User {
+                        username: parts[0].to_string(),
+                        password: vec_u8,
+                        role: match parts[2].parse::<RoleManagement>() {
+                            Ok(role) => role,
+                            Err(_) => {
+                                if self.enable_log {
+                                    let message = format!("Invalid role format in line: {}", line);
+                                    Logger::log_error_data(&message).write_log_to_file();
+                                }
+                                eprintln!("Invalid role format: {}", line);
+                                return ACLResult::faild("invalid role format");
+                            }
+                        },
+                    },
+                );
+            } else {
+                if self.enable_log {
+                    let message = format!("Invalid line format: {}", line);
+                    Logger::log_error_data(&message).write_log_to_file();
+                }
+                eprintln!("Invalid line format: {}", line);
+                return ACLResult::faild("invalid line format");
             }
-        } else {
-            if self.enable_log == true {
-                let message = &format!("Failed to open users file path");
-                let set_log = Logger::log_info_data(message);
-                set_log.write_log_to_file();
-            }
-            eprintln!("Failed to open users file");
         }
+
+        ACLResult::ok("Users loaded successfully")
     }
 }
