@@ -23,7 +23,7 @@ use std::fmt;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use super::{get_del::get_del, get_range::get_range, strlen::strlen};
+use super::{get_del::get_del, get_range::get_range, mget::mget, strlen::strlen};
 
 #[derive(Deserialize)]
 pub struct UserRequest {
@@ -103,7 +103,7 @@ pub async fn run_server(
             .route("/api/set_cluster/{cluster}", web::post().to(set_cluster))
             .route("/api/add_user", web::post().to(add_user))
             .route("/api/login", web::post().to(authenticate_user))
-            .route("/api/strlen/{cluster}/{key}", web::get().to(strlen))
+            .route("/api/mget", web::post().to(mget))
     })
     .bind(format!("{}:{}", ip, port_number))? // Bind to the provided IP and port
     .run()

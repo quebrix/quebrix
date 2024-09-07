@@ -10,6 +10,7 @@ pub mod get_del;
 pub mod get_keys_command;
 pub mod get_range;
 pub mod incr_command;
+pub mod mget;
 pub mod server;
 pub mod set_cluster_command;
 pub mod set_command;
