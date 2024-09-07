@@ -8,6 +8,7 @@ mod crypto;
 mod jobs;
 pub mod known_directories;
 mod persistent;
+mod results;
 use crate::jobs::retention_policy_job;
 use crate::logger::logger_manager::Logger;
 mod config;
