@@ -5,11 +5,11 @@ use crate::results::string_result::StringResult;
 use super::{cache::CacheType, get::Get, Cache};
 
 pub trait GetRange {
-    fn get_range(&self, cluster: &str, key: &str, start: i32, end: i32) -> StringResult;
+    fn get_range(&self, cluster: &str, key: &str, start: u32, end: u32) -> StringResult;
 }
 
 impl GetRange for Cache {
-    fn get_range(&self, cluster: &str, key: &str, start: i32, end: i32) -> StringResult {
+    fn get_range(&self, cluster: &str, key: &str, start: u32, end: u32) -> StringResult {
         let result = self.get(cluster, key);
         if result.value.is_some() {
             if result.value_type.unwrap().as_i32() == CacheType::Str.as_i32() {

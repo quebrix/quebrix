@@ -28,11 +28,6 @@ impl KnownDirectories {
         ];
         known_directory_vec.iter().for_each(|&directory| {
             if !directory.exists() {
-                let message = format!(
-                    "{:?} directory is not exist create directory ...",
-                    &directory
-                );
-
                 println!(
                     "{:?} directory is not exist create directory ...",
                     &directory

@@ -12,4 +12,5 @@ pub mod get_range;
 pub mod incr;
 pub mod set;
 pub mod set_cluster;
+pub mod strlen;
 pub use cache::Cache;

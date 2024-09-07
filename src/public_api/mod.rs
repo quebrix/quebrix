@@ -13,3 +13,4 @@ pub mod incr_command;
 pub mod server;
 pub mod set_cluster_command;
 pub mod set_command;
+pub mod strlen;
