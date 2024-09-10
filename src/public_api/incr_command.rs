@@ -1,5 +1,7 @@
+use super::server::ApiResponse;
 use super::server::SetNumbericRequest;
 use super::server::UserRequest;
+use crate::creds::auth::Authenticator;
 use crate::{
     cache::{
         cache::ResultValue, clear_cluster::ClearCluster, decr::Decr, delete::Delete, get::Get,
@@ -16,7 +18,6 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use super::server::ApiResponse;
 pub async fn incr(
     cache: web::Data<Arc<Mutex<Cache>>>,
     creds: web::Data<Arc<Mutex<CredsManager>>>,

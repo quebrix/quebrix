@@ -1,5 +1,6 @@
 use super::server::ApiResponse;
 use super::server::UserRequest;
+use crate::creds::auth::Authenticator;
 use crate::{
     cache::{
         cache::ResultValue, clear_cluster::ClearCluster, decr::Decr, delete::Delete, get::Get,
