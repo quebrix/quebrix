@@ -2,12 +2,12 @@ use crate::logger::logger_manager::Logger;
 
 use super::{set::Set, Cache};
 
-pub trait MoveDeleteClusterValues {
-    fn move_delete_cluster_value(&mut self, src_cluster: &str, set_cluster: &str) -> bool;
+pub trait MoveCluster {
+    fn move_cluster(&mut self, src_cluster: &str, set_cluster: &str) -> bool;
 }
 
-impl MoveDeleteClusterValues for Cache {
-    fn move_delete_cluster_value(&mut self, src_cluster: &str, desc_cluster: &str) -> bool {
+impl MoveCluster for Cache {
+    fn move_cluster(&mut self, src_cluster: &str, desc_cluster: &str) -> bool {
         let src_data = {
             let store = self.store.lock().unwrap();
             store.get(src_cluster).cloned()

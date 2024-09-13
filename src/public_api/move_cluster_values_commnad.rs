@@ -2,7 +2,7 @@ use super::server::ApiResponse;
 use super::server::MoveClusterValueRequest;
 use super::server::SetRequest;
 use super::server::UserRequest;
-use crate::cache::move_cluster::MoveClusterValues;
+use crate::cache::move_cluster::CopyCluster;
 use crate::creds::auth::Authenticator;
 use crate::{
     cache::{
@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-pub async fn move_cluster_values(
+pub async fn copy_cluster(
     cache: web::Data<Arc<Mutex<Cache>>>,
     creds: web::Data<Arc<Mutex<CredsManager>>>,
     payload: web::Json<MoveClusterValueRequest>,
@@ -46,9 +46,9 @@ pub async fn move_cluster_values(
     let set_result = cache
         .lock()
         .unwrap()
-        .move_cluster_value(&src_cluster.as_str(), &desc_cluster.as_str());
+        .copy_cluster(&src_cluster.as_str(), &desc_cluster.as_str());
     if set_result {
-        HttpResponse::Ok().json(ApiResponse::ok("cluster moved"))
+        HttpResponse::Ok().json(ApiResponse::ok("cluster pasted"))
     } else {
         HttpResponse::Ok().json(ApiResponse::fail("operation failed"))
     }

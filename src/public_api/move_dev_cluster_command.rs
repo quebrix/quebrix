@@ -2,8 +2,8 @@ use super::server::ApiResponse;
 use super::server::MoveClusterValueRequest;
 use super::server::SetRequest;
 use super::server::UserRequest;
-use crate::cache::move_cluster::MoveClusterValues;
-use crate::cache::move_del_cluster::MoveDeleteClusterValues;
+use crate::cache::move_cluster::CopyCluster;
+use crate::cache::move_del_cluster::MoveCluster;
 use crate::creds::auth::Authenticator;
 use crate::{
     cache::{
@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-pub async fn move_delete_cluster_values(
+pub async fn move_cluster(
     cache: web::Data<Arc<Mutex<Cache>>>,
     creds: web::Data<Arc<Mutex<CredsManager>>>,
     payload: web::Json<MoveClusterValueRequest>,
@@ -47,7 +47,7 @@ pub async fn move_delete_cluster_values(
     let set_result = cache
         .lock()
         .unwrap()
-        .move_delete_cluster_value(&src_cluster.as_str(), &desc_cluster.as_str());
+        .move_cluster(&src_cluster.as_str(), &desc_cluster.as_str());
     if set_result {
         HttpResponse::Ok().json(ApiResponse::ok("cluster moved"))
     } else {

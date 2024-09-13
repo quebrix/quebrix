@@ -4,12 +4,12 @@ use crate::logger::logger_manager::Logger;
 
 use super::{set::Set, Cache};
 
-pub trait MoveClusterValues {
-    fn move_cluster_value(&mut self, src_cluster: &str, desc_cluster: &str) -> bool;
+pub trait CopyCluster {
+    fn copy_cluster(&mut self, src_cluster: &str, desc_cluster: &str) -> bool;
 }
 
-impl MoveClusterValues for Cache {
-    fn move_cluster_value(&mut self, src_cluster: &str, desc_cluster: &str) -> bool {
+impl CopyCluster for Cache {
+    fn copy_cluster(&mut self, src_cluster: &str, desc_cluster: &str) -> bool {
         let src_data = {
             let store = self.store.lock().unwrap();
             store.get(src_cluster).cloned()
