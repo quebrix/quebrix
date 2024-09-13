@@ -21,7 +21,7 @@ use super::delete::Delete;
 use super::incr::Incr;
 use super::set::Set;
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Debug)]
 pub enum CacheType {
     Str = 1,
     Int = 2,
