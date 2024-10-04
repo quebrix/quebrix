@@ -28,8 +28,9 @@ use std::time::Duration;
 
 use super::{
     delete_user_command::delete_user, expire_key_command::expire_key, key_exists::key_exists,
-    load_users_from_file_command::load_users_from_file, move_cluster_values_commnad::copy_cluster,
-    move_dev_cluster_command::move_cluster, type_of_key::type_of_key, who_am_i_command::who_am_i,
+    keys_count::keys_count, load_users_from_file_command::load_users_from_file,
+    move_cluster_values_commnad::copy_cluster, move_dev_cluster_command::move_cluster,
+    type_of_key::type_of_key, who_am_i_command::who_am_i,
 };
 
 #[derive(Deserialize)]
@@ -76,6 +77,11 @@ pub struct TypeOfKeyRequest {
 }
 
 #[derive(Deserialize)]
+pub struct KeysCountRequest {
+    pub cluster: String,
+}
+
+#[derive(Deserialize)]
 pub struct ExpireKeyRequest {
     pub cluster: String,
     pub key: String,
@@ -110,6 +116,7 @@ pub async fn run_server(
             .route("/api/set", web::post().to(set))
             .route("/api/typeof", web::post().to(type_of_key))
             .route("/api/exists", web::post().to(key_exists))
+            .route("/api/keys_count", web::post().to(keys_count))
             .route("/api/expire", web::post().to(expire_key))
             .route("/api/move_cluster", web::post().to(move_cluster))
             .route("/api/copy_cluster", web::post().to(copy_cluster))

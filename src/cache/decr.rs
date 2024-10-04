@@ -46,9 +46,6 @@ impl Decr for Cache {
                     let mut current_i32 =
                         i32::from_le_bytes(existing_value[..4].try_into().unwrap());
                     current_i32 -= vec_to_i32(deccrement_value.clone().unwrap()).unwrap();
-                    if current_i32 == 0 || current_i32 < 0 {
-                        current_i32 = 0;
-                    }
                     // Update the value as Vec<u8>
                     *existing_value = current_i32.to_le_bytes().to_vec();
                 })
