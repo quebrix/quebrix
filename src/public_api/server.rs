@@ -29,7 +29,7 @@ use std::time::Duration;
 use super::{
     delete_user_command::delete_user, load_users_from_file_command::load_users_from_file,
     move_cluster_values_commnad::copy_cluster, move_dev_cluster_command::move_cluster,
-    who_am_i_command::who_am_i,
+    read_log_file::load_logs, who_am_i_command::who_am_i,
 };
 
 #[derive(Deserialize)]
@@ -95,6 +95,7 @@ pub async fn run_server(
             .app_data(web::Data::new(cache.clone()))
             .app_data(web::Data::new(creds.clone()))
             .route("/api/set", web::post().to(set))
+            .route("/api/logs", web::post().to(load_logs))
             .route("/api/move_cluster", web::post().to(move_cluster))
             .route("/api/copy_cluster", web::post().to(copy_cluster))
             .route("/api/load_users", web::get().to(load_users))

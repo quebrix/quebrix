@@ -133,7 +133,6 @@ impl Cache {
         if parts.is_empty() {
             return;
         }
-        //println!("{:?}",parts[3].as_bytes().to_vec());
         match parts[0] {
             "SET" => {
                 let cleaned_input = command

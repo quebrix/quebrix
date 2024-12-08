@@ -1,9 +1,8 @@
 use chrono::prelude::*;
 use std::{
     fs::{File, OpenOptions},
-    io::Write,
-    path::Path,
-    path::PathBuf,
+    io::{Read, Write},
+    path::{Path, PathBuf},
 };
 
 use crate::known_directories::KNOWN_DIRECTORIES;
@@ -82,5 +81,21 @@ impl<'a> Logger<'a> {
         };
         file.write_all(formatted_message.as_bytes())
             .expect("Failed to write to logger file");
+    }
+
+    pub fn return_logs() -> String {
+        let log_dir = &KNOWN_DIRECTORIES.log_directory;
+        let now: DateTime<Local> = Local::now();
+        let formatted_date = now.format("%d-%m-%Y %H:%M:%S %A").to_string();
+        let log_file_name = format!("logger_{}.txt", now.format("%d-%m-%Y"));
+        let log_file_path = PathBuf::from(log_dir).join(log_file_name);
+        let mut file = OpenOptions::new()
+            .append(true)
+            .open(&log_file_path)
+            .expect("Failed to open logger file");
+        let mut content = String::new();
+        file.read_to_string(&mut content)
+            .expect("Failed to read logger file");
+        content
     }
 }
