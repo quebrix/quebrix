@@ -30,7 +30,7 @@ use super::{
     delete_user_command::delete_user, expire_key_command::expire_key, key_exists::key_exists,
     keys_count::keys_count, load_users_from_file_command::load_users_from_file,
     move_cluster_values_commnad::copy_cluster, move_dev_cluster_command::move_cluster,
-    read_log_file::load_logs, who_am_i_command::who_am_i,
+    read_log_file::load_logs, type_of_key::type_of_key, who_am_i_command::who_am_i,
 };
 
 #[derive(Deserialize)]
