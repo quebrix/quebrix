@@ -26,9 +26,9 @@ jobs:
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
     - name: Install nextest
-      uses: taiki-e/install-action@nextest --no-tests
+      uses: taiki-e/install-action@nextest 
     - name: Build
-      run: cargo build --tests --workspace
+      run: cargo build --no-tests --workspace
     - name: Run Test
       # Profile "ci" is configured in .config/nextest.toml
       run: cargo nextest run --workspace --profile ci
