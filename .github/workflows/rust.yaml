@@ -28,7 +28,7 @@ jobs:
     - name: Install nextest
       uses: taiki-e/install-action@nextest 
     - name: Build
-      run: cargo build --no-tests --workspace
+      run: cargo build --tests --workspace
     - name: Run Test
       # Profile "ci" is configured in .config/nextest.toml
       run: cargo nextest run --workspace --profile ci
