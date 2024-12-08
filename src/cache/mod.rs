@@ -15,4 +15,5 @@ pub mod set_cluster;
 pub use cache::Cache;
 pub mod exist_key;
 pub mod expire_key;
+pub mod keys_count;
 pub mod type_of_key;

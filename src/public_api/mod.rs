@@ -15,6 +15,7 @@ pub mod clr_command;
 pub mod delete_user_command;
 pub mod expire_key_command;
 pub mod key_exists;
+pub mod keys_count;
 pub mod load_users_command;
 pub mod load_users_from_file_command;
 pub mod move_cluster_values_commnad;
