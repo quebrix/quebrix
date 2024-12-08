@@ -21,15 +21,15 @@ jobs:
       uses: dtolnay/rust-toolchain@stable
     - uses: actions/checkout@v4
     - uses: Swatinem/rust-cache@v2
-  #  - name: Install Protoc
-     # uses: arduino/setup-protoc@v3
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v3
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
     - name: Install nextest
       uses: taiki-e/install-action@nextest
     - name: Build
-      run: cargo build --tests --workspace --no-tests
-    - name: Run Test
+     # run: cargo build --tests --workspace --no-tests
+    #- name: Run Test
       # Profile "ci" is configured in .config/nextest.toml
       run: cargo nextest run --workspace --profile ci
     - name: Upload test report
