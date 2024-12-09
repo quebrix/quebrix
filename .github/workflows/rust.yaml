@@ -31,7 +31,7 @@ jobs:
       run: cargo build --tests --workspace
     - name: Run tests
       # Profile "ci" is configured in .config/nextest.toml
-      run: cargo nextest run --workspace --profile ci --no-tests
+      run: cargo nextest run --workspace --profile ci --no-tests=pass
     - name: Upload test report
       uses: actions/upload-artifact@v4
       with:
