@@ -20,5 +20,6 @@ pub mod load_users_command;
 pub mod load_users_from_file_command;
 pub mod move_cluster_values_commnad;
 pub mod move_dev_cluster_command;
+pub mod read_log_file;
 pub mod type_of_key;
 pub mod who_am_i_command;

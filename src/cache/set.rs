@@ -62,10 +62,10 @@ impl Set for Cache {
             if self.enable_log {
                 let set_log = Logger::log_info("Set value in cluster");
                 set_log.write_log_to_file();
-                if self.persistent && !ignore_persistent && ttl.is_none() {
-                    let command = format!("SET {} {} {:?}", cluster, key, value);
-                    persistent_Manager::write_to_persistent_file(&command);
-                }
+            }
+            if self.persistent && !ignore_persistent && ttl.is_none() {
+                let command = format!("SET {} {} {:?}", cluster, key, value);
+                persistent_Manager::write_to_persistent_file(&command);
             }
             return true;
         } else {
