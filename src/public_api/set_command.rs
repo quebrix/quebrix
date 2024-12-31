@@ -2,6 +2,7 @@ use super::server::ApiResponse;
 use super::server::SetRequest;
 use super::server::UserRequest;
 use crate::creds::auth::Authenticator;
+use crate::creds::internal_authenticator::InternalAuthenticator;
 use crate::{
     cache::{
         cache::ResultValue, clear_cluster::ClearCluster, decr::Decr, delete::Delete, get::Get,
@@ -31,31 +32,36 @@ pub async fn set(
         ttl,
     } = &*payload;
     let headers: &HeaderMap = req.headers();
-    let auth = headers.get("Authorization").unwrap().to_str().unwrap();
-    let decoded_bytes = decode(auth.clone()).expect("Failed to decode Base64 string");
-    let decoded_credentials =
-        std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
-    let creds_vec: Vec<&str> = decoded_credentials.split(":").collect();
-    let username = creds_vec.get(0).unwrap();
-    let password = creds_vec.get(1).unwrap();
-
-    if !creds.lock().unwrap().authenticate(username, password) {
-        return HttpResponse::Unauthorized().json(ApiResponse::fail("Authentication failed"));
-    }
-
-    let set_value = value.as_bytes();
-    let ttl_duration = ttl.map(Duration::from_millis);
-    let set_result = cache.lock().unwrap().set(
-        cluster.clone(),
-        key.clone(),
-        Vec::from(set_value),
-        ttl_duration,
-        false,
-    );
-
-    if set_result {
-        HttpResponse::Ok().json(ApiResponse::ok("Set operation successful"))
+    let cerd_clone = creds.lock().unwrap();
+    let (internal_auth_response, token) = cerd_clone.authenticate_internal(headers);
+    if internal_auth_response.is_some() {
+        return internal_auth_response.unwrap();
     } else {
-        HttpResponse::Ok().json(ApiResponse::fail("Set operation failed"))
+        let decoded_bytes = decode(token.unwrap()).expect("Failed to decode Base64 string");
+        let decoded_credentials =
+            std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
+        let creds_vec: Vec<&str> = decoded_credentials.split(":").collect();
+        let username = creds_vec.get(0).unwrap();
+        let password = creds_vec.get(1).unwrap();
+
+        if !creds.lock().unwrap().authenticate(username, password) {
+            return HttpResponse::Unauthorized().json(ApiResponse::fail("Authentication failed"));
+        }
+
+        let set_value = value.as_bytes();
+        let ttl_duration = ttl.map(Duration::from_millis);
+        let set_result = cache.lock().unwrap().set(
+            cluster.clone(),
+            key.clone(),
+            Vec::from(set_value),
+            ttl_duration,
+            false,
+        );
+
+        if set_result {
+            HttpResponse::Ok().json(ApiResponse::ok("Set operation successful"))
+        } else {
+            HttpResponse::Ok().json(ApiResponse::fail("Set operation failed"))
+        }
     }
 }

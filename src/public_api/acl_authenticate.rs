@@ -1,4 +1,5 @@
 use super::server::ApiResponse;
+use super::server::AuthApiResponse;
 use super::server::UserRequest;
 use crate::creds::auth::Authenticator;
 use crate::{
@@ -13,8 +14,10 @@ use actix_web::{
     http::header::HeaderMap, middleware::Logger, web, App, HttpRequest, HttpResponse, HttpServer,
 };
 use base64::decode;
+use base64::encode;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::fmt::format;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -29,14 +32,19 @@ pub async fn authenticate_user(
     } = &*payload;
 
     if creds.lock().unwrap().authenticate(username, password) {
-        HttpResponse::Ok().json(ApiResponse {
+        let non_decode_token = format!("{}:{}", username.to_string(), password.to_string());
+        let encoded_cred = non_decode_token.as_bytes();
+        let token = encode(encoded_cred);
+        HttpResponse::Ok().json(AuthApiResponse {
             is_success: true,
             data: "Authentication successful".to_string(),
+            token: Option::Some(token),
         })
     } else {
-        HttpResponse::Unauthorized().json(ApiResponse {
+        HttpResponse::Ok().json(AuthApiResponse {
             is_success: false,
             data: "Authentication failed".to_string(),
+            token: None,
         })
     }
 }

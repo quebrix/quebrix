@@ -46,6 +46,13 @@ pub struct ApiResponse<T> {
     pub data: T,
 }
 
+#[derive(Serialize)]
+pub struct AuthApiResponse<T> {
+    pub is_success: bool,
+    pub data: T,
+    pub token: Option<String>,
+}
+
 impl<T> ApiResponse<T> {
     pub fn ok(data: T) -> Self {
         ApiResponse {
