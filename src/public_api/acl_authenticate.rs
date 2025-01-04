@@ -35,10 +35,11 @@ pub async fn authenticate_user(
         let non_decode_token = format!("{}:{}", username.to_string(), password.to_string());
         let encoded_cred = non_decode_token.as_bytes();
         let token = encode(encoded_cred);
+        let res_token = format!("qbx.{}", token);
         HttpResponse::Ok().json(AuthApiResponse {
             is_success: true,
             data: "Authentication successful".to_string(),
-            token: Option::Some(token),
+            token: Option::Some(res_token),
         })
     } else {
         HttpResponse::Ok().json(AuthApiResponse {

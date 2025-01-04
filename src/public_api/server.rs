@@ -117,7 +117,7 @@ pub async fn run_server(
 ) -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
-            .wrap(Logger::default()) // Enable request logging
+            .wrap(Logger::default())
             .app_data(web::Data::new(cache.clone()))
             .app_data(web::Data::new(creds.clone()))
             .route("/api/set", web::post().to(set))
