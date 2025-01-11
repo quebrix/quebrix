@@ -26,7 +26,17 @@ pub async fn delete(
     let (cluster, key) = info.into_inner();
     let headers: &HeaderMap = req.headers();
     let auth = headers.get("Authorization").unwrap().to_str().unwrap();
-    let decoded_bytes = decode(auth.clone()).expect("Failed to decode Base64 string");
+    let qbx_token: Vec<&str> = auth.split(".").collect();
+    let non_qbx_token = qbx_token.get(1).unwrap();
+    let decr_auth = match decode(non_qbx_token) {
+        Ok(decrypet_data) => Some(decrypet_data),
+        Err(_) => None,
+    };
+
+    if decr_auth.is_none() {
+        return HttpResponse::Unauthorized().json(ApiResponse::fail("Authentication failed"));
+    }
+    let decoded_bytes = decode(non_qbx_token).expect("Failed to decode Base64 string");
     let decoded_credentials =
         std::str::from_utf8(&decoded_bytes).expect("Failed to convert bytes to string");
     let creds_vec: Vec<&str> = decoded_credentials.split(":").collect();

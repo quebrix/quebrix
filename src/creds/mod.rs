@@ -3,6 +3,7 @@ pub mod auth;
 pub mod cred_manager;
 pub mod cred_users;
 pub mod del_user;
+pub mod internal_authenticator;
 pub mod load_user_from_file;
 pub mod remove_user_from_cred_file;
 pub mod role_manager;

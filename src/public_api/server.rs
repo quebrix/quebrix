@@ -46,6 +46,13 @@ pub struct ApiResponse<T> {
     pub data: T,
 }
 
+#[derive(Serialize)]
+pub struct AuthApiResponse<T> {
+    pub is_success: bool,
+    pub data: T,
+    pub token: Option<String>,
+}
+
 impl<T> ApiResponse<T> {
     pub fn ok(data: T) -> Self {
         ApiResponse {
@@ -110,7 +117,7 @@ pub async fn run_server(
 ) -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
-            .wrap(Logger::default()) // Enable request logging
+            .wrap(Logger::default())
             .app_data(web::Data::new(cache.clone()))
             .app_data(web::Data::new(creds.clone()))
             .route("/api/set", web::post().to(set))
