@@ -111,7 +111,7 @@ impl CredsManager {
         creds_manager
     }
 
-    pub fn get_user(&mut self, username: &str) -> User {
+    pub fn get_user(&self, username: &str) -> User {
         self.users.get(username).unwrap().clone()
     }
 
@@ -122,7 +122,7 @@ impl CredsManager {
 
         if !users_file.exists() {
             fs::File::create(&users_file).unwrap();
-            let cred_result = self.add_user(
+            self.add_user(
                 "admin".to_string(),
                 "123456".to_string(),
                 RoleManagement::Admin,
