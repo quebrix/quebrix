@@ -72,7 +72,7 @@ impl RoleManagement {
         *self == RoleManagement::Admin
     }
 
-    fn can_manage_cache(&self) -> bool {
+    pub fn can_manage_cache(&self) -> bool {
         *self == RoleManagement::Admin || *self == RoleManagement::Developer
     }
 }
