@@ -90,7 +90,7 @@ impl<'a> Logger<'a> {
         let log_file_name = format!("logger_{}.txt", now.format("%d-%m-%Y"));
         let log_file_path = PathBuf::from(log_dir).join(log_file_name);
         let mut file = OpenOptions::new()
-            .append(true)
+            .read(true)
             .open(&log_file_path)
             .expect("Failed to open logger file");
         let mut content = String::new();

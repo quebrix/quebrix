@@ -30,24 +30,24 @@ impl Set for Cache {
         let memory_usage = std::mem::size_of_val(&value);
 
         // Check if the memory limit is reached
-        {
+        let over_limit = {
             let memory_handler = self.memory_handler.lock().unwrap();
-            if memory_handler.is_memory_limit_finished() {
-                println!("Memory limit exceeded. Evicting entries...");
-                self.evict_entries();
-                if self.enable_log {
-                    let memory_handler_log =
-                        Logger::log_warn("Memory limit exceeded. Evicting entries");
-                    memory_handler_log.write_log_to_file();
-                }
+            memory_handler.is_memory_limit_finished()
+        };
+
+        if over_limit {
+            println!("Memory limit exceeded. Evicting entries...");
+            self.evict_entries();
+            if self.enable_log {
+                let memory_handler_log =
+                    Logger::log_warn("Memory limit exceeded. Evicting entries");
+                memory_handler_log.write_log_to_file();
             }
         }
 
-        if !self
-            .memory_handler
-            .lock()
-            .unwrap()
-            .is_memory_limit_finished()
+        // Acquire memory handler lock once for both the check and memory addition
+        let mut memory_handler = self.memory_handler.lock().unwrap();
+        if !memory_handler.is_memory_limit_finished()
         {
             let mut store = self.store.lock().unwrap();
             let cluster_store = store.entry(cluster.clone()).or_insert_with(HashMap::new);
@@ -56,7 +56,6 @@ impl Set for Cache {
                 key.clone(),
                 (value.clone(), expiration_time, ttl, CacheType::Str),
             );
-            let mut memory_handler = self.memory_handler.lock().unwrap();
             memory_handler.add_memory(memory_usage);
 
             if self.enable_log {

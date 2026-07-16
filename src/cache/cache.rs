@@ -128,6 +128,35 @@ impl Cache {
         }
     }
 
+    fn parse_persistent_command(command: &str) -> Option<(String, String, Vec<u8>)> {
+        let cleaned_input = command
+            .trim_start_matches('[')
+            .trim_end_matches(']')
+            .trim_start_matches('"')
+            .trim_end_matches('"');
+        let (before_bracket, after_bracket) =
+            cleaned_input.split_once('[').unwrap_or((cleaned_input, ""));
+        let (inside_bracket, after_closing_bracket) =
+            after_bracket.split_once(']').unwrap_or((after_bracket, ""));
+        let inside_bracket_cleaned = inside_bracket.replace(" ", "");
+        let normalized = format!(
+            "{}[{}]{}",
+            before_bracket, inside_bracket_cleaned, after_closing_bracket
+        );
+
+        let parts: Vec<&str> = normalized.split_whitespace().collect();
+        if parts.len() == 4 {
+            let trimmed = parts[3].trim_matches(|c| c == '[' || c == ']');
+            let bytes: Vec<u8> = trimmed
+                .split(",")
+                .map(|s| s.parse().expect("Invalid byte"))
+                .collect();
+            Some((parts[1].to_string(), parts[2].to_string(), bytes))
+        } else {
+            None
+        }
+    }
+
     fn execute_command(&mut self, command: &str) {
         let parts: Vec<&str> = command.split_whitespace().collect();
         if parts.is_empty() {
@@ -135,88 +164,19 @@ impl Cache {
         }
         match parts[0] {
             "SET" => {
-                let cleaned_input = command
-                    .trim_start_matches('[')
-                    .trim_end_matches(']')
-                    .trim_start_matches('"')
-                    .trim_end_matches('"');
-                let (before_bracket, after_bracket) =
-                    cleaned_input.split_once('[').unwrap_or((cleaned_input, ""));
-                let (inside_bracket, after_closing_bracket) =
-                    after_bracket.split_once(']').unwrap_or((after_bracket, ""));
-                let inside_bracket_cleaned = inside_bracket.replace(" ", "");
-                let set_command = format!(
-                    "{}[{}]{}",
-                    before_bracket, inside_bracket_cleaned, after_closing_bracket
-                );
-
-                let splited_command: Vec<&str> = set_command.split_whitespace().collect();
-                if splited_command.len() == 4 {
-                    let trimmed_input = splited_command[3].trim_matches(|c| c == '[' || c == ']');
-                    let str_numbers = trimmed_input.split(",");
-                    let vec_u8: Vec<u8> = str_numbers
-                        .map(|s| s.parse().expect("Invalid byte"))
-                        .collect();
-                    let cluster = splited_command[1].to_string();
-                    let key = splited_command[2].to_string();
-                    self.set(cluster, key, vec_u8, None, true);
+                if let Some((cluster, key, value)) = Self::parse_persistent_command(command) {
+                    self.set(cluster, key, value, None, true);
                 }
             }
             "INCR" => {
-                let cleaned_input = command
-                    .trim_start_matches('[')
-                    .trim_end_matches(']')
-                    .trim_start_matches('"')
-                    .trim_end_matches('"');
-                let (before_bracket, after_bracket) =
-                    cleaned_input.split_once('[').unwrap_or((cleaned_input, ""));
-                let (inside_bracket, after_closing_bracket) =
-                    after_bracket.split_once(']').unwrap_or((after_bracket, ""));
-                let inside_bracket_cleaned = inside_bracket.replace(" ", "");
-                let set_command = format!(
-                    "{}[{}]{}",
-                    before_bracket, inside_bracket_cleaned, after_closing_bracket
-                );
-
-                let splited_command: Vec<&str> = set_command.split_whitespace().collect();
-                if splited_command.len() == 4 {
-                    let trimmed_input = splited_command[3].trim_matches(|c| c == '[' || c == ']');
-                    let str_numbers = trimmed_input.split(",");
-                    let vec_u8: Vec<u8> = str_numbers
-                        .map(|s| s.parse().expect("Invalid byte"))
-                        .collect();
-                    let main_value = vec_to_i32(vec_u8);
-                    let cluster = splited_command[1].to_string();
-                    let key = splited_command[2].to_string();
+                if let Some((cluster, key, value)) = Self::parse_persistent_command(command) {
+                    let main_value = vec_to_i32(value);
                     self.incr(cluster, key, main_value, true);
                 }
             }
             "DECR" => {
-                let cleaned_input = command
-                    .trim_start_matches('[')
-                    .trim_end_matches(']')
-                    .trim_start_matches('"')
-                    .trim_end_matches('"');
-                let (before_bracket, after_bracket) =
-                    cleaned_input.split_once('[').unwrap_or((cleaned_input, ""));
-                let (inside_bracket, after_closing_bracket) =
-                    after_bracket.split_once(']').unwrap_or((after_bracket, ""));
-                let inside_bracket_cleaned = inside_bracket.replace(" ", "");
-                let set_command = format!(
-                    "{}[{}]{}",
-                    before_bracket, inside_bracket_cleaned, after_closing_bracket
-                );
-
-                let splited_command: Vec<&str> = set_command.split_whitespace().collect();
-                if splited_command.len() == 4 {
-                    let trimmed_input = splited_command[3].trim_matches(|c| c == '[' || c == ']');
-                    let str_numbers = trimmed_input.split(",");
-                    let vec_u8: Vec<u8> = str_numbers
-                        .map(|s| s.parse().expect("Invalid byte"))
-                        .collect();
-                    let main_value = vec_to_i32(vec_u8);
-                    let cluster = splited_command[1].to_string();
-                    let key = splited_command[2].to_string();
+                if let Some((cluster, key, value)) = Self::parse_persistent_command(command) {
+                    let main_value = vec_to_i32(value);
                     self.decr(cluster, key, main_value, true);
                 }
             }
